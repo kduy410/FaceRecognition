@@ -1,3 +1,5 @@
+VERSION USES PYTHON 3.7
+
 # FaceRecognition
 Xây dựng hệ thống kiểm soát nhận dạng khuôn mặt với OpenCV Dlib và Deep Learning
 https://techtalk.vn/xay-dung-he-thong-kiem-soat-nhan-dang-khuon-mat-voi-opencv-dlib-va-deep-learning.html?fbclid=IwAR1__VGmxhNzr59abtIN3g6WbD659sXNvuVB8zTQ2-G9SIizsbc3gx_zVjI
