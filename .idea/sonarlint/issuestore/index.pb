@@ -13,3 +13,5 @@ G
 face_detect_and_save.py,8\9\89b83809067fafdc72fd576ec7f279217a4dae85
 8
 utils.py,5\0\5031d0ea937a7fcbe0a14f778442700216efff7a
+@
+requirements.txt,1\9\19359a61ae2446b51b549167b014da2fcf265768
