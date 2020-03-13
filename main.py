@@ -1,13 +1,15 @@
-import glob
+import os
 import time
-
 import cv2
 import dlib
-import pandas as pd
+import tkinter as tk
+from tkinter import filedialog
+import ntpath
+import filetype as ft
 
-from model import create_model
+# image_extentions = ['.jpg', '.jpx', '.png', '.gif', '.webp', '.cr2', '.tif', '.bmp', '.jxr', '.pxd', '.ico', '.heic']
+hog_face_detector = dlib.get_frontal_face_detector()
 
-DATADIR = "D:\data\lfw"
 
 # face_cascade = cv2.CascadeClassifier('venv/Lib/site-packages/cv2/data/haarcascade_frontalface_default.xml')
 # eye_cascade = cv2.CascadeClassifier('venv/Lib/site-packages/cv2/data/haarcascade_eye.xml')
@@ -26,29 +28,10 @@ DATADIR = "D:\data\lfw"
 # cv2.waitKey(0)
 # cv2.destroyAllWindows()
 
-# Đọc ảnh đầu vào
-
-
-img = cv2.imread('Abdoulaye_Wade_0004.jpg')
-
 # # Khai báo việc sử dụng các hàm của dlib
-hog_face_detector = dlib.get_frontal_face_detector()
 # cnn_face_detector = dlib.cnn_face_detection_model_v1('mmod_human_face_detector.dat')
 #
-# Thực hiện xác định bằng HOG và SVM
-start = time.time()
-faces_hog = hog_face_detector(img, 1)
-end = time.time()
-print("HOG + SVM Executing time: " + str(end - start))
 
-# Vẽ một dường màu xanh bao quanh các khuôn mặt được xác định ra bởi HOG và SVM
-for face in faces_hog:
-    x = face.left()
-    y = face.top()
-    w = face.right() - x
-    h = face.bottom() - y
-
-    cv2.rectangle(img, (x, y), (w + x, h + y), (0, 255, 0), 2)
 
 # # Xác định bằng CNN
 # start = time.time()
@@ -64,8 +47,6 @@ for face in faces_hog:
 #
 #     cv2.rectangle(img, (x, y), (w + x, h + y), (0, 0, 255), 2)
 #
-cv2.imshow("image", img)
-cv2.waitKey(0)
 
 # HUẤN LUYỆN MÔ HÌNH
 
@@ -190,3 +171,94 @@ cv2.waitKey(0)
 
 # nn4_small2 = create_model()
 # nn4_small2.load_weights('weights/nn4.small2.v1.h5')
+
+# Nhan dan khuon mat thong qua thiet bi camera
+def face_recognition_camera_HOG(device):
+    global hog_face_detector
+    # hog_face_detector = dlib.get_frontal_face_detector()
+    if hog_face_detector in globals() or locals():
+        try:
+            cap = cv2.VideoCapture(device)
+            while True:
+                if cv2.waitKey(1) & 0xFF == 27:
+                    break
+                ret, frame = cap.read()
+                # f = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                f = cv2.cvtColor(frame, cv2.IMREAD_COLOR)
+                # cv2.imshow('Frame', gray)
+                faces_hog = hog_face_detector(f, 0)
+                for face in faces_hog:
+                    x = face.left()
+                    y = face.top()
+                    w = face.right() - x
+                    h = face.bottom() - y
+
+                    cv2.rectangle(f, (x, y), (w + x, h + y), (0, 255, 0), 2)
+                cv2.imshow('Frame', f)
+            cap.release()
+            cv2.destroyAllWindows()
+        except:
+            print('An error occurred')
+    else:
+        print('Hog does not exists')
+        return
+
+
+# Nhan dan khuon mat thong qua hinh anh
+def face_recognition_image_HOG(path):
+    if path is None:
+        return
+    else:
+        name = os.path.basename(path)
+        img = cv2.imread(path)
+        print(name)
+        # Thực hiện xác định bằng HOG và SVM
+        start = time.time()
+        faces_hog = hog_face_detector(img, 1)
+        end = time.time()
+        print("HOG + SVM Executing time: " + str(end - start))
+
+        # Vẽ một dường màu xanh bao quanh các khuôn mặt được xác định ra bởi HOG và SVM
+        for face in faces_hog:
+            x = face.left()
+            y = face.top()
+            w = face.right() - x
+            h = face.bottom() - y
+
+            cv2.rectangle(img, (x, y), (w + x, h + y), (0, 255, 0), 2)
+        cv2.imshow(name, img)
+        k = cv2.waitKey(0) & 0xFF
+        if k == 27:  # ESC to exit
+            cv2.destroyAllWindows()
+            return
+        elif k == ord('s'):  # wait for 's' key to save and exit
+            cv2.imwrite('picure.jpg', img)
+
+
+# Duyet windows tim duong dan den thu muc
+def browse_windows():
+    root = tk.Tk()
+    root.withdraw()
+    file_path = filedialog.askopenfilename()
+    print(file_path)
+
+    try:
+        kind = ft.guess(file_path)
+        if ft.is_extension_supported(kind.extension) is False:
+            print("This extension isn't supported")
+            return None
+        else:
+            return file_path
+    except AttributeError as ae:
+        print(str(ae))
+
+
+def main():
+    # face_recognition_camera_HOG(0)
+    # face_recognition_image_HOG('Abdoulaye_Wade_0004.jpg')
+    file_path = browse_windows()
+    face_recognition_image_HOG(file_path)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,5 +1,14 @@
 
-=python:S125"Remove this commented out code.(ùûµÎ8—‹‡îŒ.
-=python:S125w"Remove this commented out code.(˜Îèƒ8—‹‡îŒ.
-Bpython:S125M"Remove this commented out code.(Š—âØıÿÿÿÿ8—‹‡îŒ.
-Cpython:S125¿"Remove this commented out code.(…¸­¸ûÿÿÿÿ8†›ğŒ.
+ˆpython:S1542Ğ"cRename function "face_recognition_image_HOG" to match the regular expression ^[a-z_][a-z0-9_]{2,}$.(·‘Ûøÿÿÿÿ8¼¦ü.
+>python:S125²"Remove this commented out code.(‡˜öƒ8ÙÏë.
+=python:S3626é"Remove this redundant return.(ÙãŞŸ8Í÷.
+=python:S125d"Remove this commented out code.(˜Îèƒ8—‹‡îŒ.
+„python:S1542°"dRename function "face_recognition_camera_HOG" to match the regular expression ^[a-z_][a-z0-9_]{2,}$.(éğÚ°8¼¦ü.
+Bpython:S125
+"Remove this commented out code.(¾æë¿øÿÿÿÿ8şÕ£.
+>python:S125º"Remove this commented out code.(¹šéÔ8àÌ.
+Cpython:S125"Remove this commented out code.(¥”ÂÍÿÿÿÿÿ8ÙÂó.
+Bpython:S125:"Remove this commented out code.(Š—âØıÿÿÿÿ8—‹‡îŒ.
+=python:S125"Remove this commented out code.(ùûµÎ8—‹‡îŒ.
+=python:S3626Ì"Remove this redundant return.(ÙãŞŸ8é§à.
+Cpython:S125¬"Remove this commented out code.(…¸­¸ûÿÿÿÿ8†›ğŒ.
