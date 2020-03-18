@@ -8,7 +8,7 @@ import dlib
 
 # duyệt qua hình ảnh trong thư mục, nhận diên khuôn mặt và lưu lại (chỉ lấy phần khuôn mặt)
 
-train_paths = glob.glob('image/*')
+train_paths = glob.glob(r'D:\data\imagesKPOP\*')
 print(train_paths)
 
 df_train = pd.DataFrame(columns=['image', 'label', 'name'])

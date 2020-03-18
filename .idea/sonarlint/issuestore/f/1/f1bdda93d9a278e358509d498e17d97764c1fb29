@@ -1,14 +1,27 @@
 
-ˆpython:S1542Ð"cRename function "face_recognition_image_HOG" to match the regular expression ^[a-z_][a-z0-9_]{2,}$.(·‘Ûøÿÿÿÿ8¼¦ü.
->python:S125²"Remove this commented out code.(‡˜öƒ8ÙÏë.
-=python:S3626é"Remove this redundant return.(ÙãÞŸ8Í÷.
-=python:S125d"Remove this commented out code.(˜Îèƒ8—‹‡îŒ.
-„python:S1542°"dRename function "face_recognition_camera_HOG" to match the regular expression ^[a-z_][a-z0-9_]{2,}$.(éðÚ°8¼¦ü.
-Bpython:S125
-"Remove this commented out code.(¾æë¿øÿÿÿÿ8þÕ£.
->python:S125º"Remove this commented out code.(¹šéÔ8àÌ.
-Cpython:S125"Remove this commented out code.(¥”ÂÍÿÿÿÿÿ8ÙÂóŽ.
-Bpython:S125:"Remove this commented out code.(Š—âØýÿÿÿÿ8—‹‡îŒ.
-=python:S125"Remove this commented out code.(ùûµÎ8—‹‡îŒ.
-=python:S3626Ì"Remove this redundant return.(ÙãÞŸ8é§à.
-Cpython:S125¬"Remove this commented out code.(…¸­¸ûÿÿÿÿ8†›ðŒ.
+Cpython:S125ù"Remove this commented out code.(¥”ÂÍÿÿÿÿÿ8Ê‹éŽ.
+Cpython:S125š"Remove this commented out code.(Ó­†ÿÿÿÿÿ8Ê‹éŽ.
+Cpython:S125È"Remove this commented out code.(›Øàýÿÿÿÿ8ƒ°½êŽ.
+>python:S125Ä"Remove this commented out code.(ØÓ¶¯8Ê‹éŽ.
+=python:S3626Ï"Remove this redundant return.(ÙãÞŸ8Ê‹éŽ.
+Cpython:S125á"Remove this commented out code.(…¸­¸ûÿÿÿÿ8Ê‹éŽ.
+tpython:S3776Á"TRefactor this function to reduce its Cognitive Complexity from 23 to the 15 allowed.(ïòÉ8Ê‹éŽ.
+Cpython:S125€"Remove this commented out code.(ùÞŒåüÿÿÿÿ8ø±íŽ.
+Cpython:S125à"Remove this commented out code.(›Øàýÿÿÿÿ8¯À¾êŽ.
+=python:S1251"Remove this commented out code.(ÞÖÀˆ8Ê‹éŽ.
+>python:S125–"Remove this commented out code.(¹šéÔ8Ê‹éŽ.
+=python:S125L"Remove this commented out code.(ùûµÎ8Ê‹éŽ.
+ˆpython:S1542®"cRename function "face_recognition_image_HOG" to match the regular expression ^[a-z_][a-z0-9_]{2,}$.(·‘Ûøÿÿÿÿ8Ê‹éŽ.
+Bpython:S125r"Remove this commented out code.(Š—âØýÿÿÿÿ8Ê‹éŽ.
+=python:S3626ª"Remove this redundant return.(ÙãÞŸ8Ê‹éŽ.
+=python:S125,"Remove this commented out code.(·Ûšø8Ê‹éŽ.
+>python:S125›"Remove this commented out code.(˜Îèƒ8Ê‹éŽ.
+„python:S1542Œ"dRename function "face_recognition_camera_HOG" to match the regular expression ^[a-z_][a-z0-9_]{2,}$.(éðÚ°8Ê‹éŽ.
+>python:S125Ž"Remove this commented out code.(‡˜öƒ8Ê‹éŽ.
+Bpython:S125"Remove this commented out code.(ûŸÏˆþÿÿÿÿ8Ê‹éŽ.
+=python:S125H"Remove this commented out code.(ŸˆÙü8Ê‹éŽ.
+wpython:S117Ï"YRename this local variable "faceRect" to match the regular expression ^[_a-z][a-z0-9_]*$.(ß×û28ž…¤ðŽ.
+ypython:S117Ë"ZRename this local variable "faceRects" to match the regular expression ^[_a-z][a-z0-9_]*$.(àéÅŸ8ž…¤ðŽ.
+Cpython:S125¸"Remove this commented out code.(©¦‘öþÿÿÿÿ8Ê‹éŽ.
+Bpython:S125"Remove this commented out code.(¾æë¿øÿÿÿÿ8Ê‹éŽ.
+>python:S125¸"Remove this commented out code.(‹‰í¹8¢¸ßñŽ.

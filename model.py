@@ -1,12 +1,16 @@
+import time
+
 from keras.layers import Conv2D, ZeroPadding2D, Activation, Input, concatenate
 from keras.layers.core import Lambda, Flatten, Dense
 from keras.layers.normalization import BatchNormalization
 from keras.layers.pooling import MaxPooling2D, AveragePooling2D
 from keras.models import Model
 from keras import backend as K
-
 import utils
 from utils import LRN2D
+
+
+
 
 def create_model():
     myInput = Input(shape=(96, 96, 3))
@@ -111,7 +115,7 @@ def create_model():
 
     inception_3c = concatenate([inception_3c_3x3, inception_3c_5x5, inception_3c_pool], axis=3)
 
-    #inception 4a
+    # inception 4a
     inception_4a_3x3 = utils.conv2d_bn(inception_3c,
                                        layer='inception_4a_3x3',
                                        cv1_out=96,
@@ -141,7 +145,7 @@ def create_model():
                                        cv1_filter=(1, 1))
     inception_4a = concatenate([inception_4a_3x3, inception_4a_5x5, inception_4a_pool, inception_4a_1x1], axis=3)
 
-    #inception4e
+    # inception4e
     inception_4e_3x3 = utils.conv2d_bn(inception_4a,
                                        layer='inception_4e_3x3',
                                        cv1_out=160,
@@ -163,7 +167,7 @@ def create_model():
 
     inception_4e = concatenate([inception_4e_3x3, inception_4e_5x5, inception_4e_pool], axis=3)
 
-    #inception5a
+    # inception5a
     inception_5a_3x3 = utils.conv2d_bn(inception_4e,
                                        layer='inception_5a_3x3',
                                        cv1_out=96,
@@ -186,7 +190,7 @@ def create_model():
 
     inception_5a = concatenate([inception_5a_3x3, inception_5a_pool, inception_5a_1x1], axis=3)
 
-    #inception_5b
+    # inception_5b
     inception_5b_3x3 = utils.conv2d_bn(inception_5a,
                                        layer='inception_5b_3x3',
                                        cv1_out=96,
@@ -211,6 +215,6 @@ def create_model():
     av_pool = AveragePooling2D(pool_size=(3, 3), strides=(1, 1))(inception_5b)
     reshape_layer = Flatten()(av_pool)
     dense_layer = Dense(128, name='dense_layer')(reshape_layer)
-    norm_layer = Lambda(lambda  x: K.l2_normalize(x, axis=1), name='norm_layer')(dense_layer)
+    norm_layer = Lambda(lambda x: K.l2_normalize(x, axis=1), name='norm_layer')(dense_layer)
 
     return Model(inputs=[myInput], outputs=norm_layer)
