@@ -7,7 +7,10 @@ import tkinter as tk
 from tkinter import filedialog
 import imutils
 import pandas as pd
+from imageio import imread
 from scipy.spatial import distance
+from skimage.transform import resize
+from keras.models import load_model
 from tqdm import tqdm
 import filetype as ft
 import matplotlib
@@ -29,201 +32,17 @@ hog_face_detector = dlib.get_frontal_face_detector()
 
 model = None
 alignment = None
-label2idx = None
+# label2idx = None
 threshold = 1
 train_embs = None
 
-df_train = pd.DataFrame(columns=['image', 'label', 'name'])  # 3DIM
+df_train = None  # 3DIM
 train_paths = None
 nb_classes = None
 
 match_distences = []
 unmatch_distences = []
 
-
-# mnist = tf.keras.datasets.mnist
-# (x_train, y_train), (x_test, y_test) = mnist.load_data()
-# x_train = tf.keras.utils.normalize(x_train, axis=1)
-# x_test = tf.keras.utils.normalize(x_test, axis=1)
-
-# model = tf.keras.models.Sequential()
-# model.add(tf.keras.layers.Flatten())
-# model.add(tf.keras.layers.Dense(128, activation=tf.nn.relu))
-# model.add(tf.keras.layers.Dense(10, activation=tf.nn.softmax))
-#
-# model.compile(optimizer='adam',
-#               loss='sparse_categorical_crossentropy',
-#               metrics=['accuracy'])
-#
-# model.fit(x_train, y_train, epochs=3)
-#
-# val_loss, val_acc = model.evaluate(x_test, y_test)
-# print(val_loss, val_acc)
-# model.save('epic_reader_num.model')
-# new_model = tf.keras.models.load_model('epic_reader_num.model')
-# predictions =  new_model.predict([x_test])
-# print(predictions)
-# print(np.argmax(predictions[0]))
-#
-# plt.imshow(x_test[0])
-# plt.show()
-
-
-# plt.imshow(x_train[0], cmap=plt.cm.binary)
-# plt.show()
-
-
-# face_cascade = cv2.CascadeClassifier('venv/Lib/site-packages/cv2/data/haarcascade_frontalface_default.xml')
-# eye_cascade = cv2.CascadeClassifier('venv/Lib/site-packages/cv2/data/haarcascade_eye.xml')
-#
-# img = cv2.imread('people.jpg')
-# gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-# faces = face_cascade.detectMultiScale(gray, 1.3, 5)
-# for (x, y, w, h) in faces:
-#     img = cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
-#     roi_gray = gray[y:y + h, x:x + w]
-#     roi_color = img[y:y + h, x:x + w]
-#     eyes = eye_cascade.detectMultiScale(roi_gray)
-#     for (ex, ey, ew, eh) in eyes:
-#         cv2.rectangle(roi_color, (ex, ey), (ex + ew, ey + eh), (0, 255, 0), 2)
-# cv2.imshow('img', img)
-# cv2.waitKey(0)
-# cv2.destroyAllWindows()
-
-# # Khai báo việc sử dụng các hàm của dlib
-
-
-# # Xác định bằng CNN
-# start = time.time()
-# faces_cnn = cnn_face_detector(img, 1)
-# end = time.time()
-# print("CNN Executing time: ", str(end - start))
-# # Vẽ một đường màu đỏ bao quanh các khuôn mặt được xác định bỏi CNN
-# for face in faces_cnn:
-#     x = face.rect.left()
-#     y = face.rect.top()
-#     w = face.rect.right() - x
-#     h = face.rect.bottom() - y
-#
-#     cv2.rectangle(img, (x, y), (w + x, h + y), (0, 0, 255), 2)
-#
-
-# HUẤN LUYỆN MÔ HÌNH
-# MODEL CONVNET
-
-# def convnet_model_():
-#     vgg_model = applications.VGG16(weights=None, include_top=False, input_shape=(221, 221, 3))
-#     x = vgg_model.output
-#     x = GlobalAveragePooling2D()(x)
-#     x = Dense(4096, activation='relu')(x)
-#     x = Dropout(0.6)(x)
-#     x = Dense(4096, activation='relu')(x)
-#     x = Dropout(0.6)(x)
-#     x = Lambda(lambda x_: K.l2_normalize(x, axis=1))(x)
-#     # x = Lambda(K.l2_normalize)(x)
-#     convnet_model = Model(inputs=vgg_model.input, outputs=x)
-#     return convnet_model
-#
-#
-# def deep_rank_model():
-#     convnet_model = convnet_model_()
-#
-#     first_input = Input(shape=(221, 221, 3))
-#     first_conv = Conv2D(96, kernel_size=(8, 8), strides=(16, 16), padding='same')(first_input)
-#     first_max = MaxPool2D(pool_size=(3, 3), strides=(2, 2), padding='same')(first_conv)
-#     first_max = Flatten()(first_max)
-#     first_max = Lambda(lambda x: K.l2_normalize(x, axis=1))(first_max)
-#
-#     second_input = Input(shape=(221, 221, 3))
-#     second_conv = Conv2D(96, kernel_size=(8, 8), strides=(32, 32), padding='same')(second_input)
-#     second_max = MaxPool2D(pool_size=(7, 7), strides=(4, 4), padding='same')(second_conv)
-#     second_max = Flatten()(second_max)
-#     second_max = Lambda(lambda x: K.l2_normalize(x, axis=1))(second_max)
-#
-#     merge_one = concatenate([first_max, second_max])
-#     merge_two = concatenate([merge_one, convnet_model.output])
-#     emb = Dense(4096)(merge_two)
-#     emb = Dense(128)(emb)
-#     l2_norm_final = Lambda(lambda x: K.l2_normalize(x, axis=1))(emb)
-#
-#     final_model = Model(inputs=[first_input, second_input, convnet_model.input], outputs=l2_norm_final)
-#
-#     return final_model
-
-# LOAD MODEL
-
-# deep_rank_model = deep_rank_model()
-# deep_rank_model.load_weights('/home/pham.hoang.anh/prj/face_detect/triplet_weight.hdf5')
-
-# Load all vector embedding LFW of my model
-# with open('/home/pham.hoang.anh/prj/face_detect/embs128.pkl', 'rb') as f:
-#     embs128 = pickle.load(f)
-# with open(
-#         '/home/pham.hoang.anh/prj/face_detect/visualize/128D-Facenet-LFW-Embedding-Visualisation/oss_data/LFW_128_HA_labels.tsv',
-#         'r') as f:
-#     names = f.readlines()
-
-# HÀM TRIPLET LOSS
-# batch_size = 24
-#
-# _EPSILON = K.epsilon()
-#
-#
-# def _loss_tensor(y_true, y_pred):
-#     y_pred = K.clip(y_pred, _EPSILON, 1.0 - _EPSILON)
-#     loss = 0.
-#     g = 1.
-#     for i in range(0, batch_size, 3):
-#         try:
-#             q_embedding = y_pred[i]
-#             p_embedding = y_pred[i + 1]
-#             n_embedding = y_pred[i + 2]
-#             D_q_p = K.sqrt(K.sum((q_embedding - p_embedding) ** 2))
-#             D_q_n = K.sqrt(K.sum((q_embedding - n_embedding) ** 2))
-#             loss = loss + g + D_q_p - D_q_n
-#         except:
-#             continue
-#     loss = loss / batch_size * 3
-#     return K.maximum(loss, 0)
-#
-#
-# deep_rank_model.compile(loss=_loss_tensor, optimizer=SGD(lr=0.001, momentum=0.9, nesterov=True))
-#
-#
-# def image_batch_generator(images, labels, batch_size):
-#     labels = np.array(labels)
-#     while True:
-#         batch_paths = np.random.choice(a=len(images), size=batch_size // 3)
-#         input_1 = []
-#
-#         for i in batch_paths:
-#             pos = np.where(labels == labels[i])[0]
-#             neg = np.where(labels != labels[i])[0]
-#
-#             j = np.random.choice(pos)
-#             while j == i:
-#                 j = np.random.choice(pos)
-#
-#             k = np.random.choice(neg)
-#             while k == i:
-#                 k = np.random.choice(neg)
-#
-#             input_1.append(images[i])
-#             input_1.append(images[j])
-#             input_1.append(images[k])
-#
-#         input_1 = np.array(input_1)
-#         input = [input_1, input_1, input_1]
-#         yield input, np.zeros((batch_size,))
-
-# deep_rank_model.fit_generator(generator=image_batch_generator(X, y, batch_size),
-#                               steps_per_epoch=len(X) // batch_size,
-#                               epochs=2000,
-#                               verbose=1,
-#                               callbacks=callbacks_list)
-
-# nn4_small2 = create_model()
-# nn4_small2.load_weights('weights/nn4.small2.v1.h5')
 
 def create_squential_model():
     return tf.keras.models.Sequential([
@@ -276,6 +95,8 @@ def init_model():
 def load_data(path):
     global train_paths, df_train, nb_classes
 
+    df_train = pd.DataFrame(columns=['image', 'label', 'name'])
+
     train_paths = glob.glob(path)
 
     nb_classes = len(train_paths)
@@ -293,6 +114,24 @@ def load_data(path):
 
 
 # PRE_PROCESSING
+
+# Các bước load ảnh và chuẩn hóa trước khi cho vào mạng.
+def prewhiten(x):
+    if x.ndim == 4:
+        axis = (1, 2, 3)
+        size = x[0].size
+    elif x.ndim == 3:
+        axis = (0, 1, 2)
+        size = x.size
+    else:
+        raise ValueError('Dimension should be 3 or 4')
+
+    mean = np.mean(x, axis=axis, keepdims=True)
+    std = np.std(x, axis=axis, keepdims=True)
+    std_adj = np.maximum(std, 1.0 / np.sqrt(size))
+    y = (x - mean) / std_adj
+    return y
+
 
 def l2_normalize(x, axis=-1, epsilon=1e-10):
     output = x / np.sqrt(np.maximum(np.sum(np.square(x), axis=axis, keepdims=True), epsilon))
@@ -320,13 +159,14 @@ def load_and_align_images(file_paths):
     return np.array(aligned_images)
 
 
+# Hàm tính embedding
 def calc_embs(file_paths, batch_size=64):
     pd = []
     for start in tqdm(range(0, len(file_paths), batch_size)):
         aligned_images = load_and_align_images(file_paths[start:start + batch_size])
         pd.append(model.predict_on_batch(np.squeeze(aligned_images)))
-    # embs = l2_normalize(np.concatenate(pd))
-    embs = np.array(pd)
+    embs = l2_normalize(np.concatenate(pd))
+    # embs = np.array(pd)
     return np.array(embs)
 
 
@@ -349,45 +189,9 @@ def calc_emb_test(faces):
         pd.append(model.predict_on_batch(aligned_faces))
     elif len(faces) > 1:
         pd.append(model.predict_on_batch(np.squeeze(aligned_faces)))
-    # embs = l2_normalize(np.concatenate(pd))
-    embs = np.array(pd)
+    embs = l2_normalize(np.concatenate(pd))
+    # embs = np.array(pd)
     return np.array(embs)
-
-    # df_train.to_pickle('images/data.pkl')
-
-    # plt.imread(data)
-    # plt.show()
-    # LUU TRU DU LIEU
-    # pickle_out = open("x.pickle", "wb")
-    # pickle.dump("x", pickle_out)
-    # pickle_out.close()
-    #
-    # pickle_out = open("y.pickle", "wb")
-    # pickle.dump("y", pickle_out)
-    # pickle_out.close()
-    #
-    # pickle_in = open("x.pickle", "rb")
-    # x = pickle.load(pickle_in)
-
-    # Nhan dien khuon mat va cat no ra de xu ly nhanh hon
-    # for img_path in df_train.image:
-    #     try:
-    #         print(img_path)
-    #         image = imread(img_path)
-    #         faceRects = hog_face_detector(image, 0)
-    #         faceRect = faceRects[0]
-    #         if faceRect is None:
-    #             continue
-    #
-    #         x1 = faceRect.left()
-    #         y1 = faceRect.top()
-    #         x2 = faceRect.right()
-    #         y2 = faceRect.bottom()
-    #
-    #         face = image[y1:y2, x1:x2]
-    #         imsave(img_path, face)
-    #     except Exception as e:
-    #         pass
 
 
 # TRAINING
