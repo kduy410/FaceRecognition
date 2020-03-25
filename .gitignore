@@ -11,5 +11,5 @@ pip-selfcheck.json
 logs
 sequential.model
 *.pickle
-train.csv
-train_embs.npy
+*.csv
+
