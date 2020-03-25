@@ -12,4 +12,6 @@ logs
 sequential.model
 *.pickle
 *.csv
+download.log
+*.jpg
 
