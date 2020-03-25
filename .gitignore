@@ -10,7 +10,6 @@ venv
 pip-selfcheck.json
 logs
 sequential.model
-x.pickle
-y.pickle
+*.pickle
 train.csv
 train_embs.npy
