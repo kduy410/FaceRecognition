@@ -14,4 +14,4 @@ sequential.model
 *.csv
 download.log
 *.jpg
-
+train_embs.npy
