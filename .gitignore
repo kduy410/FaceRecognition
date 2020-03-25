@@ -8,3 +8,9 @@
 pyvenv.cfg
 venv
 pip-selfcheck.json
+logs
+sequential.model
+x.pickle
+y.pickle
+train.csv
+train_embs.npy
