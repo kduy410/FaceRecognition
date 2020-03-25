@@ -30,3 +30,7 @@ F
 new.py,5\f\5f6f68df382ae025407359855bdc92aa5f83a876
 J
 portable_face_detection.py,0\3\032e5dfe135bc788c5d635d788db82197fb242a4
+6
+RNN.py,9\6\969eb88d47a6be56c096bb531576c3ced537b826
+=
+Sequential.py,2\c\2c996c8601811f4adfd668ecde0ecbac7280759b

@@ -10,8 +10,6 @@ import utils
 from utils import LRN2D
 
 
-
-
 def create_model():
     myInput = Input(shape=(96, 96, 3))
 
