@@ -1,6 +1,0 @@
-
-}python:S117"ZRename this local variable "fileNames" to match the regular expression ^[_a-z][a-z0-9_]*$.(ÎÃ¢‚úÿÿÿÿ8Ø„æîŒ.
-qpython:S107""NFunction "conv2d_bn" has 9 parameters, which is greater than the 7 authorized.(ç×²–ûÿÿÿÿ8Ø„æîŒ.
-mpython:S3827"I_get_session is not defined. Change its name or define it before using it(½„Øùÿÿÿÿ8Ø„æîŒ.
-rpython:S1542"NRename function "LRN2D" to match the regular expression ^[a-z_][a-z0-9_]{2,}$.(šÀ¢Şúÿÿÿÿ8Ø„æîŒ.
-~python:S117~"[Rename this local variable "weightsDir" to match the regular expression ^[_a-z][a-z0-9_]*$.(¿é£ÿÿÿÿÿ8Ø„æîŒ.
