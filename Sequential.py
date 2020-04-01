@@ -1,18 +1,31 @@
+import os
+
+import dlib
+import traceback
+import sys
 import tensorflow as tf
+from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.models import Sequential
+from tensorflow.keras.metrics import categorical_crossentropy
 from tensorflow.keras.layers import Flatten, Dense, Dropout, Activation, Conv2D, MaxPooling2D
 from tensorflow.keras.callbacks import TensorBoard
+from keras.utils import to_categorical
 import matplotlib.pyplot as plt
+from imageio import imread, imsave
 import keras_vggface
 import mtcnn
 import numpy as np
 import pandas as pd
 from glob import glob
+import skimage
+from skimage.transform import rescale, resize, downscale_local_mean
+from tensorflow_core.python.keras.optimizers import SGD
 from tqdm import tqdm
 import cv2
 import random
 import pickle
 import time
+from PIL import Image
 
 # check version of keras_vggface
 # print version
@@ -21,22 +34,60 @@ print("keras_vggface-version :", keras_vggface.__version__)
 # print version
 print("MTCNN-version :", mtcnn.__version__)
 
+DATA_DIR = r"D:\Data\train"
 
-# mnist_1 = keras_vggface.vggface
-def create_training_data_sequential():
-    DATA_DIR = "D:/Data/train"
+
+# Các bước load ảnh và chuẩn hóa trước khi cho vào mạng.
+def prewhiten(x):
+    if x.ndim == 4:
+        axis = (1, 2, 3)
+        size = x[0].size
+    elif x.ndim == 3:
+        axis = (0, 1, 2)
+        size = x.size
+    else:
+        raise ValueError('Dimension should be 3 or 4')
+
+    mean = np.mean(x, axis=axis, keepdims=True)
+    std = np.std(x, axis=axis, keepdims=True)
+    std_adj = np.maximum(std, 1.0 / np.sqrt(size))
+    y = (x - mean) / std_adj
+    return y
+
+
+def l2_normalize(x, axis=-1, epsilon=1e-10):
+    output = x / np.sqrt(np.maximum(np.sum(np.square(x), axis=axis, keepdims=True), epsilon))
+    return output
+
+
+def save_pickle(array, name):
+    pickle_out = open(f"{name}.pickle", "wb")
+    pickle.dump(array, pickle_out)
+    pickle_out.close()
+
+
+def load_pickle(name):
+    pickle_in = open(f"{name}", 'rb')
+    return pickle_in.load(pickle_in)
+
+
+def create_data_frame(data_path):
     df_train = pd.DataFrame(columns=['image', 'label', 'name'])
-    train_path = glob(r"D:\Data\train\*")
+    train_path = glob(fr"{data_path}\*")
     print("\n", train_path)
     for index, train_path in tqdm(enumerate(train_path)):
         name = train_path.split('\\')[-1]
         print(f"\n{name}")
         images = glob(train_path + r"\*")
-        # print("\n", images)
         for image in images:
-            # print("\n Length :", len(df_train))
             df_train.loc[len(df_train)] = [image, index, name]
-    # print("\n Length :", len(df_train))
+    return df_train
+
+
+# mnist_1 = keras_vggface.vggface
+def create_training_data_sequential(IMG_SIZE=224):
+    global DATA_DIR
+    df_train = create_data_frame(DATA_DIR)
     print(df_train.head())
 
     # for img in df_train.loc[:, 'image']:
@@ -52,90 +103,144 @@ def create_training_data_sequential():
     #     plt.imshow(new_array)
     #     plt.show()
     #     break
-    IMG_SIZE = 90
+
     training_data = []
+
     print(f"\nINFO={df_train.info()}")
     print(f"\nLENGTH={len(df_train)}")
     print(f"\nSHAPE={df_train.shape}")
-    # print(f"\nDF={df_train[['label', 'name']]}")
-    for index, row in tqdm(df_train.iterrows()):
-        # print(f"{row['image']}")
-        # print(f"{index}")
-        try:
-            # GRAY-SCALE
-            img_array = cv2.imread(row["image"], cv2.IMREAD_GRAYSCALE)
-            # b, g, r = cv2.split(img_array)
-            # img_array = cv2.merge([r, g, b])
-            new_array = cv2.resize(img_array, (IMG_SIZE, IMG_SIZE))
-            # print(f"{isinstance(row['label'], list)}")
 
-            training_data.append([new_array, row['label']])
+    for index, row in tqdm(df_train.iterrows()):
+        try:
+            img_array = imread(row['image'])
+            if img_array.ndim is 2:
+                img_gray = cv2.imread(row['image'], cv2.IMREAD_GRAYSCALE)
+                img_array = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
+                resized = prewhiten(cv2.resize(img_array, (IMG_SIZE, IMG_SIZE), interpolation=cv2.INTER_AREA))
+            else:
+                resized = prewhiten(resize(img_array, (IMG_SIZE, IMG_SIZE)))
+            # TEMPORARY USE GRAY_SCALE, COLOR DON'T WORK
+            resized = skimage.color.rgb2gray(resized)
+            training_data.append([resized, row['label']])
         except Exception as e:
-            print(f"{e}")
+            print(f"ERROR-{row['image']}")
+            print(e)
+            exc_info = sys.exc_info()
+            traceback.print_exception(*exc_info)
+            del exc_info
             pass
-    # for sample in training_data[:10]:
-    #     print(sample[1])
+
     print(f"TRAINING DATA LENGTH: {len(training_data)}")
+    num_classes = np.amax(np.array(training_data)[:, 1])
+    print(f"CLASS NUMBER: {num_classes}")
     random.shuffle(training_data)
-    x = []
-    y = []
+
+    x_trains = []
+    y_trains = []
 
     for features, label in training_data:
-        x.append(features)
-        y.append(label)
+        x_trains.append(features)
+        y_trains.append(label)
 
-    x = np.array(x).reshape(-1, IMG_SIZE, IMG_SIZE, 1)
-    y = np.array(y)
-    print(f"X:{x.shape}")
-    print(f"Y:{y.shape}")
+    # 1 for gray-scale
+    # 3 for color
+    # convert to array only work with gray_scale
+    x_trains = np.array(x_trains)
+    print(x_trains.shape)
+    x_trains = x_trains.reshape(-1, IMG_SIZE, IMG_SIZE, 1)
+    print(x_trains.shape)
+    y_trains = np.array(y_trains)
 
-    pickle_out = open("x.pickle", "wb")
-    pickle.dump(x, pickle_out)
-    pickle_out.close()
+    print(f"X:{x_trains.shape}")
+    print(f"Y:{y_trains.shape}")
 
-    pickle_out = open("y.pickle", "wb")
-    pickle.dump(y, pickle_out)
-    pickle_out.close()
+    np.save('x_trains', x_trains)
+    np.save('y_trains', y_trains)
 
-    pickle_in = open("x.pickle", 'rb')
-    x = pickle.load(pickle_in)
+
+def extracting_face_from_image(required_size=(224, 224)):
+    # create the detector, using default weights
+    detector = mtcnn.MTCNN()
+    # hog = dlib.get_frontal_face_detector()
+    # cnn = dlib.cnn_face_detection_model_v1('./weights/mmod_human_face_detector.dat')
+    train_paths = glob(fr"{DATA_DIR}\*")
+
+    for path in tqdm(train_paths):
+        name = path.split("\\")[-1]
+        images = glob(f"{path}\\*")
+        for image_path in tqdm(images):
+            try:
+                # print(image_path)
+                # load image from file
+                image = imread(image_path)
+                temp_path = image_path.split("\\")[-1]
+
+                # detect faces in the image
+                face_recs = detector.detect_faces(image)
+                # face_recs = hog(image, 0)
+                # face_rec = cnn(image, 1)
+
+                # extract the bounding box from the first face
+                x1, y1, width, height = face_recs[0]['box']
+                x2, y2 = x1 + width, y1 + height
+
+                # for hog or cnn, if it is cnn the face_rec.rect.left()...
+                face_rec = face_recs[0]['box']
+                # face_rec = face_recs[0]
+
+                # if face_rec is None:
+                #     continue
+                #
+                # x1 = face_rec.left()
+                # y1 = face_rec.top()
+                # x2 = face_rec.right()
+                # y2 = face_rec.bottom()
+
+                # extract the face
+                face = image[y1:y2, x1:x2]
+                # resize pixels to the model size
+                image = Image.fromarray(face)
+                image = image.resize(required_size)
+                face = np.asarray(image)
+
+                if not os.path.exists(fr"D:/Data/temp/{name}"):
+                    os.mkdir(fr"D:/Data/temp/{name}")
+                imsave(fr"D:/Data/temp/{name}/{temp_path}", face, format='JPG')
+            except Exception as e:
+                print(e)
+                exc_info = sys.exc_info()
+                traceback.print_exception(*exc_info)
+                del exc_info
+                pass
 
 
 def new_sequential_model():
     NAME = f"People-cnn-64x2-{int(time.time())}"
     tensorboard = TensorBoard(log_dir=f'logs\{NAME}')
-    x = pickle.load(open("x.pickle", "rb"))
-    y = pickle.load(open("y.pickle", "rb"))
-    print(x.shape, x.dtype)
-    print(y.shape, y.dtype)
 
-    x = x / 255.0
-    # y = y / 255.0
+    x_trains = np.load('x_trains.npy')
+    y_trains = np.load('y_trains.npy')
 
-    model = Sequential()
-    # CONV2D 64 unit, windows size 3.3
-    model.add(Conv2D(64, (3, 3), input_shape=x.shape[1:]))
-    model.add(Activation('relu'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
+    print(f"X-SHAPE:{x_trains.shape},\nX-DTYPE: {x_trains.dtype}")
+    print(f"Y-SHAPE:{y_trains.shape},\nY-DTYPE: {y_trains.dtype}")
 
-    model.add(Conv2D(64, (3, 3)))
-    model.add(Activation('relu'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    # 2 by 64 layer, final layer is dense, must flatten the data to 1D
-    model.add(Flatten())
-    model.add(Dense(64))
-    # Output layer
-    model.add(Dense(1))
-    model.add(Activation('sigmoid'))
+    num_classes = np.amax(np.array(y_trains)[:]) + 1
+    print(f"CLASS NUMBER: {num_classes}")
 
-    model.compile(loss="binary_crossentropy",
-                  optimizer="adam",
-                  metrics=["accuracy"])
-    model.fit(x, y, batch_size=32, epochs=10, validation_split=0.3, callbacks=[tensorboard])
+    # x_trains = l2_normalize(x_trains)
+
+    model = Sequential([
+        Flatten(),
+        Dense(64, input_shape=x_trains.shape[1:], activation='relu'),
+        Dense(128, activation='relu'),
+        Dense(num_classes, activation='softmax')
+    ])
+    model.compile(Adam(lr=.0001), loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+    model.fit(x_trains, y_trains, batch_size=16, epochs=10, shuffle=True, verbose=2, callbacks=[tensorboard])
+    model.summary()
 
     # Save model
-
-    model.save('sequential.model')
+    model.save('sequential')
 
 
 def sequential_model():
@@ -181,19 +286,22 @@ def sequential_model():
 
 
 def main():
+    # extracting_face_from_image()
     # create_training_data_sequential()
-    # new_sequential_model()
+    new_sequential_model()
     # sequential_model()
     # Create new model
-    new_model = tf.keras.models.load_model('sequential.model')
+    new_model = tf.keras.models.load_model('sequential')
     # Prediction  - predict always take a list
-    test = cv2.imread("D:/Data/test/adam_mckay.jpg", cv2.IMREAD_GRAYSCALE)
-    x = cv2.resize(test, (90, 90))
-    x = np.array(x).reshape(-1, 90, 90, 1)
+    test = imread("D:/Data/test/irene.jpg")
+    test = skimage.color.rgb2gray(test)
+    x = cv2.resize(test, (224, 224))
+    x = np.array(x).reshape(-1, 224, 224, 1)
+    # x = np.expand_dims(x, axis=0)
+    print(f"{x.shape}")
     predictions = new_model.predict(x)
     print(f"PREDICTION :{np.argmax(predictions[0])}")
-    print(f"{x.shape}")
-    # x = np.expand_dims(x, axis=0)
+
     if len(x.shape) == 3:
         plt.imshow(np.squeeze(x), cmap='gray')
     elif len(x.shape) == 2:

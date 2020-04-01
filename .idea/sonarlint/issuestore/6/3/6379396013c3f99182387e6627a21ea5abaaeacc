@@ -1,15 +1,0 @@
-
-ppython:S117G"RRename this parameter "rgbImg" to match the regular expression ^[_a-z][a-z0-9_]*$.(ì»‹ˆ8Â‚®˜Ž.
-vpython:S117<"YRename this parameter "facePredictor" to match the regular expression ^[_a-z][a-z0-9_]*$.(›Ê°8Â‚®˜Ž.
-†python:S117"bRename this local variable "npLandmarkIndices" to match the regular expression ^[_a-z][a-z0-9_]*$.(œø áûÿÿÿÿ8Â‚®˜Ž.
-ppython:S117X"RRename this parameter "rgbImg" to match the regular expression ^[_a-z][a-z0-9_]*$.(öÉŽØ8Â‚®˜Ž.
-ppython:S117z"RRename this parameter "rgbImg" to match the regular expression ^[_a-z][a-z0-9_]*$.(èõ‚§8Â‚®˜Ž.
-~python:S100X"`Rename method "getLargestFaceBoundingBox" to match the regular expression ^[a-z_][a-z0-9_]{2,}$.(öÉŽØ8Â‚®˜Ž.
-rpython:S100j"TRename method "findLandmarks" to match the regular expression ^[a-z_][a-z0-9_]{2,}$.( ­ê„8Â‚®˜Ž.
-ppython:S117z"RRename this parameter "imgDim" to match the regular expression ^[_a-z][a-z0-9_]*$.(èõ‚§8Â‚®˜Ž.
-~python:S117{"[Rename this parameter "landmarkIndices" to match the regular expression ^[_a-z][a-z0-9_]*$.(—‚ÎÑüÿÿÿÿ8Â‚®˜Ž.
-€python:S117œ"\Rename this local variable "npLandmarks" to match the regular expression ^[_a-z][a-z0-9_]*$.(ŒÃ€¦ûÿÿÿÿ8Â‚®˜Ž.
-spython:S117|"URename this parameter "skipMulti" to match the regular expression ^[_a-z][a-z0-9_]*$.(Ïê—º8Â‚®˜Ž.
-ppython:S117j"RRename this parameter "rgbImg" to match the regular expression ^[_a-z][a-z0-9_]*$.( ­ê„8Â‚®˜Ž.
-|python:S100G"^Rename method "getAllFaceBoundingBoxes" to match the regular expression ^[a-z_][a-z0-9_]{2,}$.(ì»‹ˆ8Â‚®˜Ž.
-spython:S117X"URename this parameter "skipMulti" to match the regular expression ^[_a-z][a-z0-9_]*$.(öÉŽØ8Â‚®˜Ž.

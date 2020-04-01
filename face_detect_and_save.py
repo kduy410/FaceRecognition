@@ -28,7 +28,7 @@ for img_path in df_train.image:
     faceRects = hogFaceDetector(image, 0)
 
     faceRect = faceRects[0]
-    if (faceRect == None):
+    if faceRect is None:
         continue
 
     x1 = faceRect.left()
