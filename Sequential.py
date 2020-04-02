@@ -5,10 +5,12 @@ import traceback
 import sys
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.metrics import categorical_crossentropy
 from tensorflow.keras.layers import Flatten, Dense, Dropout, Activation, Conv2D, MaxPooling2D
 from tensorflow.keras.callbacks import TensorBoard
+from sklearn.metrics import confusion_matrix, plot_confusion_matrix
+import itertools
 from keras.utils import to_categorical
 import matplotlib.pyplot as plt
 from imageio import imread, imsave
@@ -35,6 +37,7 @@ print("keras_vggface-version :", keras_vggface.__version__)
 print("MTCNN-version :", mtcnn.__version__)
 
 DATA_DIR = r"D:\Data\train"
+DATA_TEST_DIR = r"D:\Data\test"
 
 
 # Các bước load ảnh và chuẩn hóa trước khi cho vào mạng.
@@ -85,24 +88,10 @@ def create_data_frame(data_path):
 
 
 # mnist_1 = keras_vggface.vggface
-def create_training_data_sequential(IMG_SIZE=224):
-    global DATA_DIR
+def create_training_data_sequential(DATA_DIR, IMG_SIZE, data_name, label_name):
     df_train = create_data_frame(DATA_DIR)
-    print(df_train.head())
 
-    # for img in df_train.loc[:, 'image']:
-    #     img_array = cv2.imread(img, cv2.IMREAD_COLOR)
-    #     # Extract color to change from RGB to BGR
-    #     b, g, r = cv2.split(img_array)
-    #     img_array = cv2.merge([r, g, b])
-    #     print(img_array.shape)
-    #     plt.imshow(img_array)
-    #     plt.show()
-    #     IMG_SIZE = 70
-    #     new_array = cv2.resize(img_array, (IMG_SIZE, IMG_SIZE))
-    #     plt.imshow(new_array)
-    #     plt.show()
-    #     break
+    print(df_train.head())
 
     training_data = []
 
@@ -154,8 +143,8 @@ def create_training_data_sequential(IMG_SIZE=224):
     print(f"X:{x_trains.shape}")
     print(f"Y:{y_trains.shape}")
 
-    np.save('x_trains', x_trains)
-    np.save('y_trains', y_trains)
+    np.save(f'{data_name}', x_trains)
+    np.save(f'{label_name}', y_trains)
 
 
 def extracting_face_from_image(required_size=(224, 224)):
@@ -218,8 +207,8 @@ def new_sequential_model():
     NAME = f"People-cnn-64x2-{int(time.time())}"
     tensorboard = TensorBoard(log_dir=f'logs\{NAME}')
 
-    x_trains = np.load('x_trains.npy')
-    y_trains = np.load('y_trains.npy')
+    x_trains = np.load('x_test.npy')
+    y_trains = np.load('y_test.npy')
 
     print(f"X-SHAPE:{x_trains.shape},\nX-DTYPE: {x_trains.dtype}")
     print(f"Y-SHAPE:{y_trains.shape},\nY-DTYPE: {y_trains.dtype}")
@@ -236,11 +225,23 @@ def new_sequential_model():
         Dense(num_classes, activation='softmax')
     ])
     model.compile(Adam(lr=.0001), loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-    model.fit(x_trains, y_trains, batch_size=16, epochs=10, shuffle=True, verbose=2, callbacks=[tensorboard])
+    model.fit(x_trains, y_trains, batch_size=32, validation_split=0.2, epochs=15, shuffle=True, verbose=1,
+              callbacks=[tensorboard])
     model.summary()
-
-    # Save model
-    model.save('sequential')
+    # evaluate the model
+    scores = model.evaluate(x_trains, y_trains, verbose=1)
+    print("%s: %.2f%%" % (model.metrics_names[1], scores[1] * 100))
+    # serialize weights to HDF5
+    # model.save_weights("sequential.h5")
+    # print("Saved model to disk")
+    x_test = np.load('x_test.npy')
+    y_test = np.load('y_test.npy')
+    predictions = model.predict_classes(x_test, batch_size=16, verbose=1)
+    for i in predictions:
+        print(i)
+    cm = confusion_matrix(y_test, predictions)
+    cm_plot_labels = ['no side effects', 'had side effects']
+    plot_confusion_matrix(cm,cm_plot_labels,predictions)
 
 
 def sequential_model():
@@ -287,30 +288,30 @@ def sequential_model():
 
 def main():
     # extracting_face_from_image()
-    # create_training_data_sequential()
-    new_sequential_model()
-    # sequential_model()
-    # Create new model
-    new_model = tf.keras.models.load_model('sequential')
-    # Prediction  - predict always take a list
-    test = imread("D:/Data/test/irene.jpg")
-    test = skimage.color.rgb2gray(test)
-    x = cv2.resize(test, (224, 224))
-    x = np.array(x).reshape(-1, 224, 224, 1)
-    # x = np.expand_dims(x, axis=0)
-    print(f"{x.shape}")
-    predictions = new_model.predict(x)
-    print(f"PREDICTION :{np.argmax(predictions[0])}")
+    # create_training_data_sequential(DATA_DIR, 224, 'x_train', 'y_train')
+    # create_training_data_sequential(DATA_TEST_DIR, 224, 'x_test', 'y_test')
 
-    if len(x.shape) == 3:
-        plt.imshow(np.squeeze(x), cmap='gray')
-    elif len(x.shape) == 2:
-        plt.imshow(x, cmap='gray')
-    elif len(x.shape) == 4:
-        plt.imshow(np.squeeze(x), cmap='gray')
-    else:
-        print("Higher dimensional data")
-    plt.show()
+    new_sequential_model()
+
+    # model = t('sequential.h5')
+    # # Prediction  - predict always take a list
+    # test = imread("D:/Data/test/irene.jpg")
+    # test = skimage.color.rgb2gray(test)
+    # x = cv2.resize(test, (224, 224))
+    # x = np.array(x).reshape(-1, 224, 224, 1)
+    # print(f"{x.shape}")
+    #
+    # if len(x.shape) == 3:
+    #     plt.imshow(np.squeeze(x), cmap='gray')
+    # elif len(x.shape) == 2:
+    #     plt.imshow(x, cmap='gray')
+    # elif len(x.shape) == 4:
+    #     plt.imshow(np.squeeze(x), cmap='gray')
+    # else:
+    #     print("Higher dimensional data")
+    # plt.show()
+    # predictions = model.predict(x)
+    # print(f"PREDICTION :{np.argmax(predictions[0])}")
 
 
 if __name__ == "__main__":
