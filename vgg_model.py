@@ -4,7 +4,7 @@ from keras.layers import GlobalAveragePooling2D, Dense, Dropout, Lambda, Conv2D,
 
 import numpy as np
 
-batch_size = 12
+batch_size = 24
 _EPSILON = K.epsilon()
 
 

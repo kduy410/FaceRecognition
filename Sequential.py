@@ -53,9 +53,9 @@ print("keras_vggface-version :", keras_vggface.__version__)
 # print version
 print("MTCNN-version :", mtcnn.__version__)
 
-DATA_DIR = r"D:\Data\train"
-DATA_TEST_DIR = r"D:\Data\test"
-alignment = AlignDlib('weights/shape_predictor_68_face_landmarks.dat')
+DATA_DIR = r"C:\Data\train"
+DATA_TEST_DIR = r"C:\Data\test"
+alignment = AlignDlib('model/shape_predictor_68_face_landmarks.dat')
 
 
 # Các bước load ảnh và chuẩn hóa trước khi cho vào mạng.
@@ -186,11 +186,11 @@ def display(a, b, title1="Original", title2="Edited"):
 def align_face(face, image_size):
     (h, w, c) = face.shape
     bb = dlib.rectangle(0, 0, w, h)
-    return alignment.align(image_size, face, bb, landmarkIndices=AlignDlib.INNER_EYES_AND_BOTTOM_LIP)
+    return alignment.align(image_size, face, bb, landmarkIndices=AlignDlib.OUTER_EYES_AND_NOSE)
 
 
 # Preprocessing
-def preprocessing(directory_path, save_path, required_size=(224, 224)):
+def preprocessing(directory_path, save_path, required_size=(250, 250)):
     # create the detector, using default weights
 
     detector = mtcnn.MTCNN()
@@ -325,41 +325,44 @@ def create_model():
     print(f"\nCLASS NUMBER: {num_classes}")
     # classes = np.unique(y_train)
 
-    batch_size = 12
+    batch_size = 24
     model = vgg_model.deep_rank_model(input_shape=x_train.shape[1:])
-
     print("Loading pre-trained weight")
-    weights_path = 'weights/triplet_weight.hdf5'
+    weights_path = 'weights/triplet_weights.hdf5'
     if os.path.exists(weights_path):
-        model.load_weights('weights/triplet_weight.hdf5')
-    checkpoint = ModelCheckpoint(f'weights/triplet_weights.hdf5',
+        model.load_weights(weights_path)
+    else:
+        print('False')
+        return
+
+    model.summary()
+    model.compile(optimizer=tf.optimizers.SGD(lr=0.001, momentum=0.9, nesterov=True),
+                  loss=vgg_model._loss_tensor)
+
+    checkpoint = ModelCheckpoint("weights/triplet_weights-{epoch:02d}.hdf5",
+                                 period=1,
                                  monitor='loss',
                                  verbose=1,
                                  save_weights_only=True,
                                  save_best_only=True,
                                  mode='min')
     callbacks_list = [checkpoint]
-    model.summary()
-
-    model.compile(optimizer=tf.optimizers.SGD(lr=0.001, momentum=0.9, nesterov=True),
-                  loss=vgg_model._loss_tensor)
-
     model.fit_generator(generator=vgg_model.image_batch_generator(x_train, y_train, batch_size),
                         steps_per_epoch=len(x_train) // batch_size,
-                        epochs=1000,
+                        epochs=1,
                         verbose=1,
                         callbacks=callbacks_list)
 
     # evaluate the model
-    scores = model.evaluate(x_train, y_train, verbose=1)
-    print("%s: %.2f%%" % (model.metrics_names[1], scores[1] * 100))
-    # model.save('vgg_model.h5')
+    # scores = model.evaluate([x_train, x_train, x_train], y_train, verbose=1)
+    # print("%s: %.2f%%" % (model.metrics_names[1], scores[1] * 100))
+    model.save('model/triplet_model.h5')
     # model.save_weights("vgg_model_weights.h5")
 
 
 def main():
     required_size = (128, 128)
-    # preprocessing(r"D:\Data\test", r"D:\Data\temp")
+    # preprocessing(r"C:\download\images", r"C:\download\faces")
     # create_training_data_sequential(DATA_DIR, 224, 'x_train', 'y_train')
     # create_training_data(DATA_DIR, f'x_train_{required_size[0]}', f'y_train_{required_size[0]}',
     #                      required_size=required_size)
