@@ -1,12 +1,19 @@
 import os
 
+from keras.callbacks import ModelCheckpoint
 from skimage.exposure import rescale_intensity
 import argparse
+from keras import backend as K
 import dlib
+import model as m
+from sklearn import model_selection
 from align import AlignDlib
 import traceback
 import sys
 import tensorflow as tf
+from sklearn.model_selection import train_test_split
+from keras.layers import Input
+from tensorflow.keras.preprocessing.image import ImageDataGenerator, NumpyArrayIterator
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.metrics import categorical_crossentropy
@@ -14,7 +21,7 @@ from tensorflow.keras.layers import Flatten, Dense, Dropout, Activation, Conv2D,
 from tensorflow.keras.callbacks import TensorBoard
 from sklearn.metrics import confusion_matrix, plot_confusion_matrix
 import itertools
-from keras.utils import to_categorical
+from keras.utils import to_categorical, np_utils
 import matplotlib.pyplot as plt
 from imageio import imread, imsave
 import keras_vggface
@@ -33,7 +40,12 @@ import random
 import pickle
 import time
 from PIL import Image
+import vgg_model
 
+# IMPORTANT
+gpus = tf.config.experimental.list_physical_devices('GPU')
+for gpu in gpus:
+    tf.config.experimental.set_memory_growth(gpu, True)
 # check version of keras_vggface
 # print version
 print("keras_vggface-version :", keras_vggface.__version__)
@@ -120,8 +132,6 @@ def create_training_data(directory_path, data_name, label_name, required_size=(2
                         print(f"CONVERTED={img_array.shape}")
                 if img_array.shape[:2] != required_size:
                     print(f"SHAPE DON'T MATCH={img_array.shape}")
-                    img_array = cv2.addWeighted(img_array, 1.5, img_array, -0.5, 0, img_array)
-                    img_array = cv2.normalize(img_array, required_size, 0, 255, cv2.NORM_MINMAX)
                     img_array = cv2.resize(img_array, required_size, interpolation=cv2.INTER_LINEAR)
                     print(f"SHAPE RESIZED={img_array.shape}")
 
@@ -149,6 +159,7 @@ def create_training_data(directory_path, data_name, label_name, required_size=(2
 
     x_trains = np.array(x_trains)
     y_trains = np.array(y_trains)
+
     print(f"X:{x_trains.shape}")
     print(f"Y:{y_trains.shape}")
 
@@ -249,111 +260,126 @@ def preprocessing(directory_path, save_path, required_size=(224, 224)):
                 pass
 
 
-def new_sequential_model():
-    NAME = f"People-cnn-64x2-{int(time.time())}"
-    tensorboard = TensorBoard(log_dir=f'logs\{NAME}')
-
-    x_trains = np.load('x_train.npy')
-    y_trains = np.load('y_train.npy')
-
-    print(f"X-SHAPE:{x_trains.shape},\nX-DTYPE: {x_trains.dtype}")
-    print(f"Y-SHAPE:{y_trains.shape},\nY-DTYPE: {y_trains.dtype}")
-
-    num_classes = np.amax(np.array(y_trains)[:]) + 1
-    print(f"CLASS NUMBER: {num_classes}")
-
-    # x_trains = l2_normalize(x_trains)
-
-    model = Sequential([
+def seq_model(input_shape=(224, 224, 3), classes=10):
+    return Sequential([
         Conv2D(32, (3, 3), activation='relu', input_shape=(224, 224, 3)),
         Flatten(),
-        Dense(64, input_shape=x_trains.shape[1:], activation='relu'),
+        Dense(64, input_shape=input_shape, activation='relu'),
         Dense(128, activation='relu'),
-        Dense(num_classes, activation='softmax')
+        Dense(classes, activation='softmax')
     ])
-    model.compile(Adam(lr=.0001), loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-    model.fit(x_trains, y_trains, batch_size=32, validation_split=0.2, epochs=15, shuffle=True, verbose=1,
-              callbacks=[tensorboard])
+
+
+def plot_confusion_matrix(cm, classes, normalize=False, title="Confusion matrix", cmap=plt.cm.Blues):
+    plt.imshow(cm, interpolation="nearest", cmap=cmap)
+    plt.title(title)
+    plt.colorbar()
+    tick_marks = np.arange(len(classes))
+    plt.xticks(tick_marks, classes, rotation=45)
+    plt.yticks(tick_marks, classes)
+    if normalize:
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+        print("Normalized confusion matrix")
+    else:
+        print("Confusion matrix, without normalization")
+    print(cm)
+    thresh = cm.max() / 2
+    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+        plt.text(j, i, cm[i, j],
+                 horizontalalignment="center",
+                 color="white" if cm[i, j] > thresh else "black")
+    plt.tight_layout()
+    plt.ylabel("True label")
+    plt.xlabel("Prediction label")
+
+
+def _loss_tensor(y_true, y_pred):
+    _EPSILON = K.epsilon()
+    batch_size = 32
+    y_pred = K.clip(y_pred, _EPSILON, 1.0 - _EPSILON)
+    loss = 0.
+    g = 1.
+    for i in range(0, batch_size, 3):
+        try:
+            q_embedding = y_pred[i]
+            p_embedding = y_pred[i + 1]
+            n_embedding = y_pred[i + 2]
+            D_q_p = K.sqrt(K.sum((q_embedding - p_embedding) ** 2))
+            D_q_n = K.sqrt(K.sum((q_embedding - n_embedding) ** 2))
+            loss = loss + g + D_q_p - D_q_n
+        except:
+            continue
+    loss = loss / batch_size * 3
+    return K.maximum(loss, 0)
+
+
+def create_model():
+    # NAME = f"People-cnn-64x2-{int(time.time())}"
+    # tensorboard = TensorBoard(log_dir=f'logs\{NAME}')
+    x_train = np.load('x_train_128.npy')
+    y_train = np.load('y_train_128.npy')
+
+    print(f"X-TRAIN-SHAPE:{x_train.shape},\tDTYPE: {x_train.dtype}")
+    print(f"Y-TRAIN-SHAPE:{y_train.shape},\tDTYPE: {y_train.dtype}")
+    num_classes = np.amax(np.array(y_train)[:]) + 1
+    print(f"\nCLASS NUMBER: {num_classes}")
+    # classes = np.unique(y_train)
+
+    batch_size = 12
+    model = vgg_model.deep_rank_model(input_shape=x_train.shape[1:])
+
+    print("Loading pre-trained weight")
+    weights_path = 'weights/triplet_weight.hdf5'
+    if os.path.exists(weights_path):
+        model.load_weights('weights/triplet_weight.hdf5')
+    checkpoint = ModelCheckpoint(f'weights/triplet_weights.hdf5',
+                                 monitor='loss',
+                                 verbose=1,
+                                 save_weights_only=True,
+                                 save_best_only=True,
+                                 mode='min')
+    callbacks_list = [checkpoint]
     model.summary()
+
+    model.compile(optimizer=tf.optimizers.SGD(lr=0.001, momentum=0.9, nesterov=True),
+                  loss=vgg_model._loss_tensor)
+
+    model.fit_generator(generator=vgg_model.image_batch_generator(x_train, y_train, batch_size),
+                        steps_per_epoch=len(x_train) // batch_size,
+                        epochs=1000,
+                        verbose=1,
+                        callbacks=callbacks_list)
+
     # evaluate the model
-    scores = model.evaluate(x_trains, y_trains, verbose=1)
+    scores = model.evaluate(x_train, y_train, verbose=1)
     print("%s: %.2f%%" % (model.metrics_names[1], scores[1] * 100))
-
-    model.save('model.h5')
-
-
-def sequential_model():
-    mnist = tf.keras.datasets.mnist  # 28x28 images of hand-written digits 0-9
-
-    (x_train, y_train), (x_test, y_test) = mnist.load_data()
-    # Scale
-    # Easy for network to learn
-    # Reduce time
-    x_train = tf.keras.utils.normalize(x_train, axis=1)
-    x_test = tf.keras.utils.normalize(x_test, axis=1)
-    # Build model
-    model = tf.keras.models.Sequential()
-    # Input layer
-    model.add(Flatten(input_shape=x_train.shape[1:]))
-    # Hidden layer: 128 neurons or units
-    model.add(Dense(128, activation=tf.nn.relu))
-    model.add(Dense(128, activation=tf.nn.relu))
-    # Output layer: 10 classification
-    model.add(Dense(10, activation=tf.nn.softmax))
-    # Parameter
-    # Loss metrics is the decay of error - is what you got wrong
-    model.compile(optimizer='adam',
-                  loss=tf.losses.sparse_categorical_crossentropy,
-                  metrics=['accuracy'])
-    # To train the model -> model.fit
-    model.fit(x_train, y_train, epochs=3)
-    # Should expect out_of_sample accuracy to be slightly lower and loss to be slightly higher
-    # Calculate loss, accuracy
-    val_loss, val_acc = model.evaluate(x_test, y_test)
-    print(f"Val loss: {val_loss} - Val accuracy: {val_acc}")
-    # print(plt.imshow(x_train[0]))
-
-    # Save model
-    model.save('num_reader_model.model')
-    # Create new model
-    new_model = tf.keras.models.load_model('num_reader_model.model')
-    # Prediction  - predict always take a list
-    predictions = new_model.predict([x_test])
-    print(np.argmax(predictions[70]))
-    plt.imshow(x_test[70])
-    plt.show()
+    # model.save('vgg_model.h5')
+    # model.save_weights("vgg_model_weights.h5")
 
 
 def main():
-    # preprocessing(r"D:\Data\test", r"D:\Data\test")
+    required_size = (128, 128)
+    # preprocessing(r"D:\Data\test", r"D:\Data\temp")
     # create_training_data_sequential(DATA_DIR, 224, 'x_train', 'y_train')
-    # create_training_data(DATA_DIR, 'x_train', 'y_train')
-    create_training_data(DATA_TEST_DIR, 'x_test', 'y_test')
-
-    # new_sequential_model()
+    # create_training_data(DATA_DIR, f'x_train_{required_size[0]}', f'y_train_{required_size[0]}',
+    #                      required_size=required_size)
+    # create_training_data(DATA_TEST_DIR, f'x_test_{required_size[0]}', f'y_test_{required_size[0]}',
+    #                      required_size=required_size)
+    create_model()
+    # predictions = model.predict((x_test, y_test))
+    # y_test = to_categorical(y_test)
+    # cm = confusion_matrix(y_test, predictions[:, 0], )
+    # cm_plot_labels = 32
+    # plot_confusion_matrix(cm, cm_plot_labels, title="Confusion Matrix")
     # model = load_model('model.h5')
-    # model.summary()
-    # model.get_weights()
-    # model.optimizer
-    # model = t('sequential.h5')
-    # # Prediction  - predict always take a list
-    # test = imread("D:/Data/test/irene.jpg")
-    # test = skimage.color.rgb2gray(test)
-    # x = cv2.resize(test, (224, 224))
-    # x = np.array(x).reshape(-1, 224, 224, 1)
-    # print(f"{x.shape}")
+    # x_test = np.load('x_test.npy')
+    # y_test = np.load('y_test.npy')
+    # predictions = model.predict((x_test, y_test))
     #
-    # if len(x.shape) == 3:
-    #     plt.imshow(np.squeeze(x), cmap='gray')
-    # elif len(x.shape) == 2:
-    #     plt.imshow(x, cmap='gray')
-    # elif len(x.shape) == 4:
-    #     plt.imshow(np.squeeze(x), cmap='gray')
-    # else:
-    #     print("Higher dimensional data")
-    # plt.show()
-    # predictions = model.predict(x)
-    # print(f"PREDICTION :{np.argmax(predictions[0])}")
+    # y_test = to_categorical(y_test)
+    # cm = confusion_matrix(y_test, predictions[:, 0], )
+    # cm_plot_labels = 32
+    # plot_confusion_matrix(cm, cm_plot_labels, title="Confusion Matrix")
 
 
 if __name__ == "__main__":
