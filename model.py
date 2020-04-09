@@ -1,5 +1,3 @@
-import time
-
 from keras.layers import Conv2D, ZeroPadding2D, Activation, Input, concatenate
 from keras.layers.core import Lambda, Flatten, Dense
 from keras.layers.normalization import BatchNormalization
