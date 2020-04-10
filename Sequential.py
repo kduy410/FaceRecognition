@@ -53,8 +53,8 @@ print("keras_vggface-version :", keras_vggface.__version__)
 # print version
 print("MTCNN-version :", mtcnn.__version__)
 
-DATA_DIR = r"C:\Data\train"
-DATA_TEST_DIR = r"C:\Data\test"
+DATA_DIR = r"C:\Data\temp"
+DATA_TEST_DIR = r"C:\Data\temp"
 alignment = AlignDlib('model/shape_predictor_68_face_landmarks.dat')
 
 
@@ -249,9 +249,12 @@ def preprocessing(directory_path, save_path, required_size=(250, 250)):
 
                 if not os.path.exists(fr"{save_path}/{name}"):
                     os.mkdir(fr"{save_path}/{name}")
-                    imsave(fr"{save_path}/{name}/{temp_path}", face, format='JPEG')
+                    imsave(fr"{save_path}/{name}/{temp_path}.jpeg", face, format='JPEG')
                 else:
-                    imsave(fr"{save_path}/{name}/{temp_path}", face, format='JPEG')
+                    if os.path.exists(fr"{save_path}/{name}/{temp_path}.jpeg"):
+                        imsave(fr"{save_path}/{name}/{temp_path}-{int(time.time())}.jpeg", face, format='JPEG')
+                    else:
+                        imsave(fr"{save_path}/{name}/{temp_path}.jpeg", face, format='JPEG')
             except Exception as e:
                 print(e)
                 exc_info = sys.exc_info()
@@ -316,13 +319,14 @@ def _loss_tensor(y_true, y_pred):
 def create_model():
     # NAME = f"People-cnn-64x2-{int(time.time())}"
     # tensorboard = TensorBoard(log_dir=f'logs\{NAME}')
-    x_train = np.load('x_train_128.npy')
-    y_train = np.load('y_train_128.npy')
-
+    x_train = np.load('x_train_128_lfw.npy')
+    y_train = np.load('y_train_128_lfw.npy')
+    x_train = x_train / 255.0
+    y_train = y_train / 255.0
     print(f"X-TRAIN-SHAPE:{x_train.shape},\tDTYPE: {x_train.dtype}")
     print(f"Y-TRAIN-SHAPE:{y_train.shape},\tDTYPE: {y_train.dtype}")
-    num_classes = np.amax(np.array(y_train)[:]) + 1
-    print(f"\nCLASS NUMBER: {num_classes}")
+    # num_classes = int(np.amax(np.array(y_train)[:]) + 1)
+    # print(f"\nCLASS NUMBER: {num_classes}")
     # classes = np.unique(y_train)
 
     batch_size = 24
@@ -349,40 +353,72 @@ def create_model():
     callbacks_list = [checkpoint]
     model.fit_generator(generator=vgg_model.image_batch_generator(x_train, y_train, batch_size),
                         steps_per_epoch=len(x_train) // batch_size,
-                        epochs=1,
+                        epochs=40,
                         verbose=1,
                         callbacks=callbacks_list)
 
     # evaluate the model
     # scores = model.evaluate([x_train, x_train, x_train], y_train, verbose=1)
     # print("%s: %.2f%%" % (model.metrics_names[1], scores[1] * 100))
-    model.save('model/triplet_model.h5')
+    # model.save('model/triplet_model.h5')
     # model.save_weights("vgg_model_weights.h5")
 
 
 def main():
     required_size = (128, 128)
-    # preprocessing(r"C:\download\images", r"C:\download\faces")
-    # create_training_data_sequential(DATA_DIR, 224, 'x_train', 'y_train')
-    # create_training_data(DATA_DIR, f'x_train_{required_size[0]}', f'y_train_{required_size[0]}',
+    # preprocessing(r"C:\Data\lfw_funneled", r"C:\Data\temp", required_size=required_size)
+    # preprocessing(r"C:\Data\lfw-deepfunneled", r"C:\Data\temp", required_size=required_size)
+    # create_training_data(DATA_DIR, f'x_train_{required_size[0]}_lfw', f'y_train_{required_size[0]}_lfw',
     #                      required_size=required_size)
-    # create_training_data(DATA_TEST_DIR, f'x_test_{required_size[0]}', f'y_test_{required_size[0]}',
+    # create_training_data(DATA_TEST_DIR, f'x_test_{required_size[0]}_lfw', f'y_test_{required_size[0]}_lfw',
     #                      required_size=required_size)
-    create_model()
-    # predictions = model.predict((x_test, y_test))
-    # y_test = to_categorical(y_test)
-    # cm = confusion_matrix(y_test, predictions[:, 0], )
-    # cm_plot_labels = 32
-    # plot_confusion_matrix(cm, cm_plot_labels, title="Confusion Matrix")
-    # model = load_model('model.h5')
-    # x_test = np.load('x_test.npy')
-    # y_test = np.load('y_test.npy')
-    # predictions = model.predict((x_test, y_test))
-    #
-    # y_test = to_categorical(y_test)
-    # cm = confusion_matrix(y_test, predictions[:, 0], )
-    # cm_plot_labels = 32
-    # plot_confusion_matrix(cm, cm_plot_labels, title="Confusion Matrix")
+    # create_model()
+    # df = create_data_frame(r'C:\Data\temp')
+    # df.to_csv('out.csv')
+    df = pd.read_csv("out.csv")
+    model = vgg_model.deep_rank_model(input_shape=(128, 128, 3))
+    model.load_weights('weights/triplet_weights.hdf5')
+    model.summary()
+    image = cv2.imread(r'C:\Data\Pictures\c.jpg', cv2.IMREAD_UNCHANGED)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    print(np.array(image).shape)
+    detector = mtcnn.MTCNN()
+    # Detect faces in the image
+    face_recs = detector.detect_faces(image)
+
+    # Extract the bounding box from the first face
+    x1, y1, width, height = face_recs[0]['box']
+    x2, y2 = x1 + width, y1 + height
+
+    # Extract the face
+    face = image[y1:y2, x1:x2]
+    print(np.array(face).shape)
+    frame = face
+    frame = cv2.resize(frame, (128, 128))
+    frame = frame / 255.
+    frame = np.expand_dims(frame, axis=0)
+    emb128 = model.predict([frame, frame, frame])
+    print(emb128)
+    print(np.array(frame).shape)
+    minimum = 99999
+    person = -1
+    embs128 = np.load('x_train_128_lfw.npy')
+    labels = np.load('y_train_128_lfw.npy')
+    for k, e in enumerate(embs128):
+        # Euler distance
+        dist = np.linalg.norm(emb128.shape[1:] - e)
+        if dist < minimum:
+            minimum = dist
+            person = k
+    id = labels[person]
+    print(id)
+    name = df[(df['label'] == labels[person])].iloc[0, 3]
+    print(name)
+    detected = cv2.cvtColor(cv2.imread(df[(df['label'] == labels[person])].iloc[0, 1]
+                                       , cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
+    cv2.putText(image, name, (x1 - 10, y1 - 10),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+    display(image, detected)
 
 
 if __name__ == "__main__":

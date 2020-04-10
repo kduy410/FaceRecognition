@@ -67,3 +67,7 @@ y_tests.npy
 /model/nn4.v2.t7
 /model/shape_predictor_68_face_landmarks.dat
 /model/vgg-face-keras.h5
+/y_train_128_lfw.npy
+/y_test_128_lfw.npy
+/x_train_128_lfw.npy
+/x_test_128_lfw.npy
