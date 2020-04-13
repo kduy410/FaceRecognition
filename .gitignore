@@ -54,3 +54,5 @@ y_tests.npy
 /x_train_221.npy
 /x_test_128.npy
 /x_test_221.npy
+/model/
+*.zip
