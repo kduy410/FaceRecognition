@@ -1,33 +1,89 @@
-import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout, LSTM
+import sys
+import dlib
+import numpy as np
+import cv2
 
-from tqdm import tqdm
+import time
+import dlib
+import cv2
+import matplotlib.pyplot as plt
 
-mnist = tf.keras.datasets.mnist
-(x_train, y_train), (x_test, y_test) = tqdm(mnist.load_data())
+# Display one image
+from imutils import face_utils
 
-x_train = x_train / 255.0
-x_test = x_test / 255.0
 
-print(x_train.shape)  # 60000 example of (28,28) image or 28x28 => sequence of 28 rows of 28 pixels per rows
-print(x_train[0].shape)
+def display_one(a, title1="Original"):
+    plt.imshow(a), plt.title(title1)
+    plt.xticks([]), plt.yticks([])
+    plt.show()
 
-model = Sequential()
-# First layer
-model.add(LSTM(128, input_shape=(x_train.shape[1:]), return_sequences=True))
-model.add(Dropout(0.2))  # 20% dropout
-# Another layer
-model.add(LSTM(128))
-model.add(Dropout(0.2))  # 20% dropout
-# Dense layer
-model.add(Dense(32, activation='relu'))  # 20% dropout
-model.add(Dropout(0.2))  # 20% dropout
-# Final Dense layer
-model.add(Dense(10, activation='softmax'))
-# To do compile, must have optimizers
-opt = tf.keras.optimizers.Adam(lr=1e-3, decay=1e-5)
 
-model.compile(loss='sparse_categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
-model.fit(x_train, y_train, epochs=3, validation_data=(x_test, y_test))
+# Display two images
+def display(a, b, title1="Hog", title2="CNN"):
+    plt.subplot(121), plt.imshow(a), plt.title(title1)
+    plt.xticks([]), plt.yticks([])
+    plt.subplot(122), plt.imshow(b), plt.title(title2)
+    plt.xticks([]), plt.yticks([])
+    plt.show()
 
+
+path = r'D:\Data\face_rec\faces\obama.jpg'
+# path = r'D:\Data\face_rec\faces\happy-people-1050x600.jpg'
+# Đọc ảnh đầu vào
+image_1 = cv2.imread(path, cv2.IMREAD_UNCHANGED)
+image_1 = cv2.cvtColor(image_1, cv2.COLOR_BGR2RGB)
+image_2 = cv2.imread(path, cv2.IMREAD_UNCHANGED)
+image_2 = cv2.cvtColor(image_2, cv2.COLOR_BGR2RGB)
+# Khai báo việc sử dụng các hàm của dlib
+hog_face_detector = dlib.get_frontal_face_detector()
+cnn_face_detector = dlib.cnn_face_detection_model_v1('model/mmod_human_face_detector.dat')
+
+# # Thực hiện xác định bằng HOG và SVM
+# start = time.time()
+# faces_hog = hog_face_detector(image_1, 1)
+# end = time.time()
+# print("Hog + SVM Execution time: " + str(end - start))
+#
+# # Vẽ một đường bao màu xanh lá xung quanh các khuôn mặt được xác định ra bởi HOG + SVM
+# for face in faces_hog:
+#     x = face.left()
+#     y = face.top()
+#     w = face.right() - x
+#     h = face.bottom() - y
+#
+#     cv2.rectangle(image_1, (x, y), (x + w, y + h), (0, 255, 0), 2)
+#
+# # Thực hiện xác định bằng CNN
+# start = time.time()
+# faces_cnn = cnn_face_detector(image_2, 1)
+# end = time.time()
+# print("CNN Execution time: " + str(end - start))
+#
+# # Vẽ một đường bao đỏ xung quanh các khuôn mặt được xác định bởi CNN
+# for face in faces_cnn:
+#     x = face.rect.left()
+#     y = face.rect.top()
+#     w = face.rect.right() - x
+#     h = face.rect.bottom() - y
+#
+#     cv2.rectangle(image_2, (x, y), (x + w, y + h), (0, 0, 255), 2)
+#
+# display(image_1, image_2)
+
+p = "model/shape_predictor_68_face_landmarks.dat"
+detector = dlib.get_frontal_face_detector()
+predictor = dlib.shape_predictor(p)
+image_1 = cv2.imread(path, cv2.IMREAD_UNCHANGED)
+image_1 = cv2.cvtColor(image_1, cv2.COLOR_BGR2RGB)
+gray = cv2.cvtColor(image_1, cv2.COLOR_BGR2GRAY)
+rects = detector(gray, 0)
+
+for (i, rect) in enumerate(rects):
+    shape = predictor(gray, rect)
+    shape = face_utils.shape_to_np(shape)
+
+    for (x, y) in shape:
+        cv2.circle(image_1, (x, y), 2, (0, 255, 0), -1)
+
+# Show the image
+display_one(image_1, "Image")

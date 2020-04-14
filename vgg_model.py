@@ -4,7 +4,7 @@ from keras.layers import GlobalAveragePooling2D, Dense, Dropout, Lambda, Conv2D,
 
 import numpy as np
 
-batch_size = 12
+batch_size = 24
 _EPSILON = K.epsilon()
 
 
@@ -37,9 +37,12 @@ def image_batch_generator(images, labels, batch_size):
             pos = np.where(labels == labels[i])[0]
             neg = np.where(labels != labels[i])[0]
 
-            j = np.random.choice(pos)
-            while j == i:
+            if len(pos) is not 1:
                 j = np.random.choice(pos)
+                while j == i:
+                    j = np.random.choice(pos)
+            else:
+                j = i
 
             k = np.random.choice(neg)
             while k == i:

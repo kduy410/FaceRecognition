@@ -189,7 +189,6 @@ def classify_face(image):
     global next_id
     # image = face_recognition.load_image_file(image, mode="L")
     # image = np.array(image)
-
     locations = face_recognition.face_locations(image, model=MODEL)
     encodings = face_recognition.face_encodings(image, locations)
 

@@ -56,3 +56,12 @@ y_tests.npy
 /x_test_221.npy
 /model/
 *.zip
+/x_test_96_1.npy
+/x_train_96_1.npy
+/y_test_96_1.npy
+/y_train_96_1.npy
+/x_test_96.npy
+/x_train_96.npy
+/y_test_96.npy
+/y_train_96.npy
+/embs96.npy
