@@ -4,7 +4,7 @@ from keras.layers import GlobalAveragePooling2D, Dense, Dropout, Lambda, Conv2D,
 
 import numpy as np
 
-batch_size = 24
+batch_size = 54
 _EPSILON = K.epsilon()
 
 
@@ -89,7 +89,10 @@ def deep_rank_model(input_shape):
     merge_one = concatenate([first_max, second_max])
     merge_two = concatenate([merge_one, convnet_model.output])
     emb = Dense(4096)(merge_two)
-    emb = Dense(128)(emb)
+    # emb = Dense(128)(emb)
+    # Experiment
+    emb = Dense(96)(emb)
+    # Experiment
     l2_norm_final = Lambda(lambda x: K.l2_normalize(x, axis=1))(emb)
 
     final_model = Model(inputs=[first_input, second_input, convnet_model.input], outputs=l2_norm_final)

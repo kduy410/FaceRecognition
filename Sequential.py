@@ -1,6 +1,7 @@
 import os
 from keras.applications.vgg16 import decode_predictions
-from keras.callbacks import ModelCheckpoint
+from keras.callbacks import ModelCheckpoint, CSVLogger
+from keras.callbacks.tensorboard_v1 import TensorBoard
 from skimage.exposure import rescale_intensity
 import argparse
 from keras import backend as K
@@ -114,7 +115,8 @@ def create_data_frame(data_path, save=False):
 
 
 # mnist_1 = keras_vggface.vggface
-def create_training_data(directory_path, data_name, label_name, required_size=(224, 224)):
+def create_training_data(directory_path, data_name, label_name, required_size=(224, 224),
+                         shuffle=False):
     # CREATE TRAINING DATA FROM PREPROCESSED DATA
     if os.path.exists(DATAFRAME_PATH):
         df_train = pd.read_csv(DATAFRAME_PATH, compression='zip')
@@ -159,6 +161,8 @@ def create_training_data(directory_path, data_name, label_name, required_size=(2
     print(f"TRAINING DATA LENGTH: {len(training_data)}")
     num_classes = np.amax(np.array(training_data)[:, 1]) + 1
     print(f"CLASS NUMBER: {num_classes}")
+    if shuffle is True:
+        random.shuffle(training_data)
 
     x_trains = []
     y_trains = []
@@ -313,31 +317,9 @@ def plot_confusion_matrix(cm, classes, normalize=False, title="Confusion matrix"
     plt.xlabel("Prediction label")
 
 
-def _loss_tensor(y_true, y_pred):
-    _EPSILON = K.epsilon()
-    batch_size = 32
-    y_pred = K.clip(y_pred, _EPSILON, 1.0 - _EPSILON)
-    loss = 0.
-    g = 1.
-    for i in range(0, batch_size, 3):
-        try:
-            q_embedding = y_pred[i]
-            p_embedding = y_pred[i + 1]
-            n_embedding = y_pred[i + 2]
-            D_q_p = K.sqrt(K.sum((q_embedding - p_embedding) ** 2))
-            D_q_n = K.sqrt(K.sum((q_embedding - n_embedding) ** 2))
-            loss = loss + g + D_q_p - D_q_n
-        except:
-            continue
-    loss = loss / batch_size * 3
-    return K.maximum(loss, 0)
-
-
 def create_model():
-    # NAME = f"People-cnn-64x2-{int(time.time())}"
-    # tensorboard = TensorBoard(log_dir=f'logs\{NAME}')
-    x_train = np.load('x_train_96_1.npy')
-    y_train = np.load('y_train_96_1.npy')
+    x_train = np.load('x_train_96_1_shuffle.npy')
+    y_train = np.load('y_train_96_1_shuffle.npy')
 
     print(f"X-TRAIN-SHAPE:{x_train.shape},\tDTYPE: {x_train.dtype}")
     print(f"Y-TRAIN-SHAPE:{y_train.shape},\tDTYPE: {y_train.dtype}")
@@ -345,14 +327,16 @@ def create_model():
     print(f"\nCLASS NUMBER: {num_classes}")
     # classes = np.unique(y_train)
 
-    batch_size = 24
+    vgg_model.batch_size = 42
+    print(vgg_model.batch_size)
     model = vgg_model.deep_rank_model(input_shape=x_train.shape[1:])
 
     print("Loading pre-trained weight")
-    weights_path = f'weights/triplet_weights_model-08-96-1.hdf5'
+    weights_path = f'weights/models-DENSEFINAL96/triplet_weights_model-DENSE-FINAL-96-14.hdf5'
     if os.path.exists(weights_path):
         try:
             model.load_weights(weights_path)
+            print("SUCCESSFULLY LOADED!!!")
         except ValueError as ve:
             print(ve)
             exc_info = sys.exc_info()
@@ -368,19 +352,23 @@ def create_model():
     model.compile(optimizer=tf.optimizers.SGD(lr=0.001, momentum=0.9, nesterov=True),
                   loss=vgg_model._loss_tensor)
 
-    checkpoint = ModelCheckpoint("weights/triplet_weights_model-{epoch:02d}-96-1.hdf5",
+    checkpoint = ModelCheckpoint("weights/models-DENSEFINAL96/triplet_weights_model-DENSE-FINAL-96-{epoch:02d}-2.hdf5",
                                  period=1,
-                                 monitor='loss',
                                  verbose=1,
+                                 monitor='loss',
                                  save_weights_only=True,
                                  save_best_only=True,
                                  mode='min')
+    csv_logger = CSVLogger('csv_logger.log', separator=',', append=True)
 
-    callbacks_list = [checkpoint]
+    # NAME = f"VGG_MODEL_96_FINALDENSE-{int(time.time())}"
+    # tensorboard = TensorBoard(log_dir=f'logs\{NAME}')
+
+    callbacks_list = [checkpoint, csv_logger]
     try:
-        model.fit_generator(generator=vgg_model.image_batch_generator(x_train, y_train, batch_size),
-                            steps_per_epoch=len(x_train) // batch_size,
-                            epochs=20,
+        model.fit_generator(generator=vgg_model.image_batch_generator(x_train, y_train, vgg_model.batch_size),
+                            steps_per_epoch=len(x_train) // vgg_model.batch_size,
+                            epochs=100,
                             verbose=1,
                             callbacks=callbacks_list)
     except TypeError as te:
@@ -423,22 +411,23 @@ def predictor(image, embs, labels, df, model):
 
         for i, e in enumerate(embs):
             # Euler distance
-            print("\nNUMBER :", i)
             dist = np.linalg.norm(emb - e)
             if dist < minimum:
                 minimum = dist
                 person = i
                 print(i)
                 print(minimum)
-        percentage = 100 - minimum
+        EMB = minimum
         print("\nPERSON: ", person)
         print("\nPERSON-LABEL: ", labels[person])
         name = df[(df['label'] == labels[person])].iloc[0, 2]
         print("\nPERSON-NAME: ", name)
-        print("\nPERSON-PERCENTAGE: ", percentage)
+        print("\nPERSON-EMB: ", EMB)
         # convert the probabilities to class labels
-        print('%s (%.2f%%)' % (name, percentage))
+        # print('%s (%.2f%%)' % (name, EMB))
         cv2.putText(image, name, (x - 10, y - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+        cv2.putText(image, str(EMB), (x - 20, y - 20),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
         display_one(image)
 
@@ -448,37 +437,39 @@ def main():
     # create_data_frame('D:/Data/images/faces', True)
     # preprocessing(r"D:\Data\images\images", r"D:\Data\images\faces1", required_size=required_size)
     # create_training_data_sequential(DATA_DIR, 224, 'x_train', 'y_train')
-    # create_training_data(r'D:/Data/images/faces', f'x_train_{required_size[0]}_1', f'y_train_{required_size[0]}_1',
-    #                      required_size=required_size)
-    # create_training_data(r'D:/Data/images/faces', f'x_test_{required_size[0]}_1', f'y_test_{required_size[0]}_1',
-    #                      required_size=required_size)
+    # create_training_data(r'D:/Data/images/faces', f'x_train_{required_size[0]}_1_shuffle',
+    #                      f'y_train_{required_size[0]}_1_shuffle',
+    #                      required_size=required_size, shuffle=True)
+    # create_training_data(r'D:/Data/images/faces', f'x_test_{required_size[0]}_1_shuffle',
+    #                      f'y_test_{required_size[0]}_1_shuffle',
+    #                      required_size=required_size, shuffle=True)
     #
     create_model()
-    # x_train = np.load('x_test_96_1.npy')
-    # y_train = np.load('y_test_96_1.npy')
+    # x_train = np.load('x_train_96_1.npy')
+    # y_train = np.load('y_train_96_1.npy')
     #
     # model = vgg_model.deep_rank_model(input_shape=x_train.shape[1:])
-    # model.load_weights(r"weights\triplet_weights_model-01-96.hdf5")
+    # model.load_weights(r"weights\triplet_weights_model-DENSE96-04-96-1.hdf5")
     # model.summary()
-    # # embs96 = []
-    # # for x in tqdm(x_train):
-    # #     image = x / 255.
-    # #     image = np.expand_dims(image, axis=0)
-    # #     emb128 = model.predict([image, image, image])
-    # #     embs96.append(emb128[0])
-    # #     del image
-    # #
-    # # embs96 = np.array(embs96)
-    # # print(embs96.shape)
-    # # np.save('embs96', embs96)
-    # embs = np.load('embs96.npy')
-    # # Load all vector embedding LFW of my model
-    # df = pd.read_csv('dataframe.zip', compression='zip')
+    # embs96 = []
+    # for x in tqdm(x_train):
+    #     image = x / 255.
+    #     image = np.expand_dims(image, axis=0)
+    #     emb128 = model.predict([image, image, image])
+    #     embs96.append(emb128[0])
+    #     del image
+    #
+    # embs96 = np.array(embs96)
+    # print(embs96.shape)
+    # np.save('embs96-DENSE', embs96)
+
+    # embs = np.load('embs96-DENSE.npy')
+    #
     # df_train = pd.read_csv('dataframe_1.zip')
-    # print(len(df))
+    #
     # print(len(df_train))
-    # image = cv2.imread("D:/Data/irene.jpg", cv2.IMREAD_UNCHANGED)
-    # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    # image = cv2.imread("D:/Data/irene.png", cv2.IMREAD_GRAYSCALE)
+    # image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
     # predictor(image, embs, y_train, df_train, model)
 
 
