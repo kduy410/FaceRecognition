@@ -365,60 +365,100 @@ def create_model():
 
 
 def main():
-    required_size = (128, 128)
-    # preprocessing(r"C:\Data\lfw_funneled", r"C:\Data\temp", required_size=required_size)
-    # preprocessing(r"C:\Data\lfw-deepfunneled", r"C:\Data\temp", required_size=required_size)
-    # create_training_data(DATA_DIR, f'x_train_{required_size[0]}_lfw', f'y_train_{required_size[0]}_lfw',
-    #                      required_size=required_size)
-    # create_training_data(DATA_TEST_DIR, f'x_test_{required_size[0]}_lfw', f'y_test_{required_size[0]}_lfw',
-    #                      required_size=required_size)
-    # create_model()
-    # df = create_data_frame(r'C:\Data\temp')
-    # df.to_csv('out.csv')
-    df = pd.read_csv("out.csv")
-    model = vgg_model.deep_rank_model(input_shape=(128, 128, 3))
-    model.load_weights('weights/triplet_weights.hdf5')
-    model.summary()
-    image = cv2.imread(r'C:\Data\Pictures\c.jpg', cv2.IMREAD_UNCHANGED)
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    print(np.array(image).shape)
-    detector = mtcnn.MTCNN()
-    # Detect faces in the image
-    face_recs = detector.detect_faces(image)
+    # required_size = (128, 128)
+    # # preprocessing(r"C:\Data\lfw_funneled", r"C:\Data\temp", required_size=required_size)
+    # # preprocessing(r"C:\Data\lfw-deepfunneled", r"C:\Data\temp", required_size=required_size)
+    # # create_training_data(DATA_DIR, f'x_train_{required_size[0]}_lfw', f'y_train_{required_size[0]}_lfw',
+    # #                      required_size=required_size)
+    # # create_training_data(DATA_TEST_DIR, f'x_test_{required_size[0]}_lfw', f'y_test_{required_size[0]}_lfw',
+    # #                      required_size=required_size)
+    # # create_model()
+    # # df = create_data_frame(r'C:\Data\temp')
+    # # df.to_csv('out.csv')
+    # df = pd.read_csv("out.csv")
+    # model = vgg_model.deep_rank_model(input_shape=(128, 128, 3))
+    # model.load_weights('weights/triplet_weights-01.hdf5')
+    # model.summary()
+    # image = cv2.imread(r'C:\Data\Pictures\c.jpg', cv2.IMREAD_UNCHANGED)
+    # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    # print(np.array(image).shape)
+    # detector = mtcnn.MTCNN()
+    # # Detect faces in the image
+    # face_recs = detector.detect_faces(image)
+    #
+    # # Extract the bounding box from the first face
+    # x1, y1, width, height = face_recs[0]['box']
+    # x2, y2 = x1 + width, y1 + height
+    #
+    # # Extract the face
+    # face = image[y1:y2, x1:x2]
+    # print(np.array(face).shape)
+    # frame = face
+    # frame = cv2.resize(frame, (128, 128))
+    # frame = frame / 255.
+    # frame = np.expand_dims(frame, axis=0)
+    # x_test = np.load('x_test_128.npy')
+    # emb128 = model.predict([x_test[:1], x_test[:1], x_test[:1]])
+    # print(emb128)
+    # print(np.array(frame).shape)
+    # minimum = 99999
+    # person = -1
+    # embs128 = np.load('x_train_128_lfw.npy')
+    # labels = np.load('y_train_128_lfw.npy')
+    # for k, e in tqdm(enumerate(embs128)):
+    #     # Euler distance
+    #     dist = np.linalg.norm(emb128.shape[1:] - e)
+    #     if dist < minimum:
+    #         minimum = dist
+    #         person = k
+    # id = labels[person]
+    # print(id)
+    # name = df[(df['label'] == labels[person])].iloc[0, 3]
+    # print(name)
+    # detected = cv2.cvtColor(cv2.imread(df[(df['label'] == labels[person])].iloc[0, 1]
+    #                                    , cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
+    # cv2.putText(image, name, (x1 - 10, y1 - 10),
+    #             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+    # display(image, detected)
+    x = np.load('x_train_128_lfw.npy')
+    y = np.load('y_test_128_lfw.npy')
 
-    # Extract the bounding box from the first face
-    x1, y1, width, height = face_recs[0]['box']
-    x2, y2 = x1 + width, y1 + height
+    for _ in [1]:
+        batch_paths = np.random.choice(a=len(x), size=24 // 3)
+        print(f'BATCH-{batch_paths}')
+        input_1 = []
+        for i in batch_paths:
+            print('I:', i)
+            pos = np.where(y == y[i])[0]
+            print(f"POS:{pos}")
+            print(f"POS-LEN:{len(pos)}")
+            neg = np.where(y != y[i])[0]
+            print(f"NEG:{neg}")
+            print(f"NEG-LEN:{len(neg)}")
+            if len(pos) is not 1:
+                j = np.random.choice(pos)
+                print(f"J:{j}")
+                while j == i:
+                    print(f"J==I:{j}")
+                    j = np.random.choice(pos)
+            else:
+                j = i
+                print(f"J!=I:{j}")
 
-    # Extract the face
-    face = image[y1:y2, x1:x2]
-    print(np.array(face).shape)
-    frame = face
-    frame = cv2.resize(frame, (128, 128))
-    frame = frame / 255.
-    frame = np.expand_dims(frame, axis=0)
-    emb128 = model.predict([frame, frame, frame])
-    print(emb128)
-    print(np.array(frame).shape)
-    minimum = 99999
-    person = -1
-    embs128 = np.load('x_train_128_lfw.npy')
-    labels = np.load('y_train_128_lfw.npy')
-    for k, e in enumerate(embs128):
-        # Euler distance
-        dist = np.linalg.norm(emb128.shape[1:] - e)
-        if dist < minimum:
-            minimum = dist
-            person = k
-    id = labels[person]
-    print(id)
-    name = df[(df['label'] == labels[person])].iloc[0, 3]
-    print(name)
-    detected = cv2.cvtColor(cv2.imread(df[(df['label'] == labels[person])].iloc[0, 1]
-                                       , cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
-    cv2.putText(image, name, (x1 - 10, y1 - 10),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-    display(image, detected)
+            k = np.random.choice(neg)
+            print(f"NEG-K:{k}")
+
+            while k == i:
+                print(f"K==I:{k}")
+                k = np.random.choice(neg)
+
+            input_1.append(y[i])
+            input_1.append(y[j])
+            input_1.append(y[k])
+
+        input_1 = np.array(input_1)
+        input = [input_1, input_1, input_1]
+        print(input)
 
 
 if __name__ == "__main__":
