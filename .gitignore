@@ -65,3 +65,7 @@ y_tests.npy
 /y_test_96.npy
 /y_train_96.npy
 /embs96.npy
+/x_test_96_1_shuffle.npy
+/x_train_96_1_shuffle.npy
+/y_test_96_1_shuffle.npy
+/y_train_96_1_shuffle.npy
