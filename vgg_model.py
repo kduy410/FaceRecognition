@@ -1,11 +1,14 @@
-from keras import applications, Input, Model
-from keras import backend as K
-from keras.layers import GlobalAveragePooling2D, Dense, Dropout, Lambda, Conv2D, MaxPool2D, Flatten, concatenate
-
+import tensorflow as tf
+from tensorflow.keras import applications, Input, Model
+from tensorflow.keras import backend as K
+from tensorflow.keras.layers import GlobalAveragePooling2D, Dense, Dropout, Lambda, Conv2D, MaxPool2D, Flatten, \
+    concatenate
+import functools
 import numpy as np
 
 batch_size = 54
 _EPSILON = K.epsilon()
+x = None
 
 
 def _loss_tensor(y_true, y_pred):
@@ -58,6 +61,7 @@ def image_batch_generator(images, labels, batch_size):
 
 
 def convnet_model_(input_shape):
+    global x
     vgg_model = applications.VGG16(weights=None, include_top=False, input_shape=input_shape)
     x = vgg_model.output
     x = GlobalAveragePooling2D()(x)
@@ -67,11 +71,13 @@ def convnet_model_(input_shape):
     x = Dropout(rate=0.5)(x)
     x = Lambda(lambda x_: K.l2_normalize(x, axis=1))(x)
     #     x = Lambda(K.l2_normalize)(x)
+
     convnet_model = Model(inputs=vgg_model.input, outputs=x)
     return convnet_model
 
 
 def deep_rank_model(input_shape):
+    global x
     convnet_model = convnet_model_(input_shape)
 
     first_input = Input(shape=input_shape)
@@ -93,8 +99,16 @@ def deep_rank_model(input_shape):
     # Experiment
     emb = Dense(96)(emb)
     # Experiment
-    l2_norm_final = Lambda(lambda x: K.l2_normalize(x, axis=1))(emb)
 
+    l2_norm_final = Lambda(lambda x: K.l2_normalize(x, axis=1))(emb)
+    """
+    https://stackoverflow.com/questions/55280201/keras-typeerror-cant-pickle-thread-rlock-objects
+    https://stackoverflow.com/questions/47066635/checkpointing-keras-model-typeerror-cant-pickle-thread-lock-objects
+    Keras TypeError: can't pickle _thread.RLock objects
+    If model don't have global variables to hold output
+    It will mostly cause this error
+    And it won't allow we to save the model, but only the weights can be saved
+    """
     final_model = Model(inputs=[first_input, second_input, convnet_model.input], outputs=l2_norm_final)
 
     return final_model
