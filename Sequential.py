@@ -332,7 +332,7 @@ def create_model():
     model = vgg_model.deep_rank_model(input_shape=x_train.shape[1:])
 
     print("Loading pre-trained weight")
-    weights_path = f'weights/models-DENSEFINAL96/triplet_weights_model-DENSE-FINAL-96-14.hdf5'
+    weights_path = f'weights/models-DENSEFINAL96/triplet_weights_model-DENSE-FINAL-96-144-5.hdf5'
     if os.path.exists(weights_path):
         try:
             model.load_weights(weights_path)
@@ -352,7 +352,7 @@ def create_model():
     model.compile(optimizer=tf.optimizers.SGD(lr=0.001, momentum=0.9, nesterov=True),
                   loss=vgg_model._loss_tensor)
 
-    checkpoint = ModelCheckpoint("weights/models-DENSEFINAL96/triplet_weights_model-DENSE-FINAL-96-{epoch:02d}-2.hdf5",
+    checkpoint = ModelCheckpoint("weights/models-DENSEFINAL96/triplet_weights_model-DENSE-FINAL-96-{epoch:02d}-6.hdf5",
                                  period=1,
                                  verbose=1,
                                  monitor='loss',
@@ -444,13 +444,17 @@ def main():
     #                      f'y_test_{required_size[0]}_1_shuffle',
     #                      required_size=required_size, shuffle=True)
     #
-    create_model()
-    # x_train = np.load('x_train_96_1.npy')
-    # y_train = np.load('y_train_96_1.npy')
+    # create_model()
+    # x_train = np.load('x_train_96_1_shuffle.npy')
+    # y_train = np.load('y_train_96_1_shuffle.npy')
     #
     # model = vgg_model.deep_rank_model(input_shape=x_train.shape[1:])
-    # model.load_weights(r"weights\triplet_weights_model-DENSE96-04-96-1.hdf5")
+    # model.load_weights(r"C:\FaceRecognition\weights\models-DENSEFINAL96\triplet_weights_model-DENSE-FINAL-96-144-5.hdf5")
     # model.summary()
+    # model.save('model/vgg-model.h5')
+    # model_json = model.to_json()
+    # with open("config.json", "w") as json_file:
+    #     json_file.write(model_json)
     # embs96 = []
     # for x in tqdm(x_train):
     #     image = x / 255.

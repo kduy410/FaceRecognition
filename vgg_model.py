@@ -69,7 +69,7 @@ def convnet_model_(input_shape):
     x = Dropout(rate=0.5)(x)
     x = Dense(4096, activation='relu')(x)
     x = Dropout(rate=0.5)(x)
-    x = Lambda(lambda x_: K.l2_normalize(x, axis=1))(x)
+    x = Lambda(lambda x: K.l2_normalize(x, axis=1))(x)
     #     x = Lambda(K.l2_normalize)(x)
 
     convnet_model = Model(inputs=vgg_model.input, outputs=x)
