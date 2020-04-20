@@ -1,50 +1,107 @@
 import pickle
-import numpy as np
-import tensorflow as tf
-import keras.backend as K
-from tensorflow.keras.models import model_from_json, Model, load_model
-from sklearn.decomposition import PCA, IncrementalPCA
+import random
 
+import numpy as np
+from imageio import imwrite
+import pandas as pd
+from sklearn.decomposition import PCA
+from tqdm import tqdm
 import vgg_model
 
 
-def main(mode='pca'):
-    X_train = np.load('x_train_96_1_shuffle.npy')
-    y_train = np.load('y_train_96_1_shuffle.npy')
-    print(X_train.shape[1:])
-    # X_train = X_train.reshape(X_train.shape[0], 28, 28, 3)
-    X_train = X_train.astype('float32')
-    X_train /= 255
+class Visualize:
+    x = "x_train_96_1_shuffle.npy"
+    y = "y_train_96_1_shuffle.npy"
+    data = "data"
+    dataframe = "dataframe.zip"
+    file_name = "lfw"
+    dimension = "96"
+    types = ['embs', 'tenorbytes', 'labels', 'sprites']
+    weight_path = "weights/models-DENSEFINAL96/triplet_weights_model-DENSE-FINAL-96-14.hdf5"
 
-    # with open('config.json') as f:
-    #     config = f.read()
-    # model = model_from_json(config)
-    model = vgg_model.deep_rank_model((96, 96, 3))
-    model.load_weights('weights/models-DENSEFINAL96/triplet_weights_model-DENSE-FINAL-96-144-5.hdf5')
+    def __init__(self):
+        self.x_train = np.load(f"{self.data}/{self.x}")
+        self.y_train = np.load(f"{self.data}/{self.y}")
+        self.dataframe = pd.read_csv(f"{self.data}/{self.dataframe}")
+        print(f"x-shape:{np.shape(self.x_train)}")
+        print(f"y-shape:{np.shape(self.y_train)}")
+        print(f"Data frame\n{self.dataframe.head()}")
+        model = vgg_model.deep_rank_model(input_shape=self.x_train.shape[1:])
+        model.summary()
+        model.load_weights(f'{self.weight_path}')
+        self.model = model
 
-    model.compile(optimizer=tf.optimizers.SGD(lr=0.001, momentum=0.9, nesterov=True),
-                  loss=vgg_model._loss_tensor)
-    new_model = Model(model.inputs, model.layers[-3].output)
+    def create_embeddings(self, data, name=None):
+        embs96 = []
+        for x in tqdm(data):
+            image = x / 255.
+            image = np.expand_dims(image, axis=0)
+            emb96 = self.model.predict([image, image, image])
+            embs96.append(emb96[0])
+            del image
+        print(f"EMBS-SHAPE:{np.shape(embs96)}")
+        embs96 = np.array(embs96)
+        np.save(f"{self.data}/{self.file_name}-{self.dimension}-{self.types[0]}{str(name)}", embs96)
+        embs96.tofile(f"{self.data}/{self.file_name}-{self.dimension}-{self.types[1]}{str(name)}.bytes")
 
-    new_model.set_weights(model.get_weights())
+    def create_tensor_labels(self, y_train, name=None):
+        with open(f'{self.data}/{self.file_name}-{self.dimension}-{self.types[2]}{str(name)}.tsv', 'w') as f:
+            for label in tqdm(y_train):
+                f.write(str(label) + '\n')
 
-    embs_4096 = new_model.predict(X_train)
-    if mode == 'pca':
-        pca = PCA(n_components=96)
-        embs_128 = pca.fit_transform(embs_4096)
-        with open('embs_96D.pkl', 'wb') as f:
-            pickle.dump(embs_128, f)
-        embs_128.tofile('data_tensor.bytes')
-    elif mode == 'ipca':
-        # http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.IncrementalPCA.html#sklearn.decomposition.IncrementalPCA  # noqa
-        ipca = IncrementalPCA(n_components=128, batch_size=200)
-        embs_128 = ipca.fit_transform(embs_4096)
-        with open('embs_96D_2.pkl', 'wb') as f:
-            pickle.dump(embs_128, f)
-        embs_128.tofile('data_tensor_2.bytes')
-    else:
-        raise NotImplementedError("Mode must be set")
+    def images_to_sprite(self, data):
+        """
+        Creates the sprite image
+        :param data: [batch_size, height, weight, n_channel]
+        :return data: Sprited image::[height, weight, n_channel]
+        """
+        if len(data.shape) == 3:
+            data = np.tile(data[..., np.newaxis], (1, 1, 1, 3))
 
+        data = data.astype(np.float32)
+        min = np.min(data.reshape((data.shape[0], -1)), axis=1)
+        data = (data.transpose(1, 2, 3, 0) - min).transpose(3, 0, 1, 2)
+        max = np.max(data.reshape((data.shape[0], -1)), axis=1)
+        data = (data.transpose(1, 2, 3, 0) / max).transpose(3, 0, 1, 2)
 
-if __name__ == '__main__':
-    main()
+        n = int(np.ceil(np.sqrt(data.shape[0])))
+        padding = ((0, n ** 2 - data.shape[0]), (0, 0),
+                   (0, 0)) + ((0, 0),) * (data.ndim - 3)
+        data = np.pad(data, padding, mode='constant',
+                      constant_values=0)
+
+        data = data.reshape((n, n) + data.shape[1:]).transpose(
+            (0, 2, 1, 3) + tuple(range(4, data.ndim + 1))
+        )
+
+        data = data.reshape(
+            (n * data.shape[1], n * data.shape[3]) + data.shape[4:])
+        data = (data * 255).astype(np.uint8)
+        return data
+
+    def to_sprites(self, data, name=None):
+        simg = self.images_to_sprite(data)
+        imwrite(f'{self.data}/{self.file_name}-{self.dimension}-{self.types[3]}{str(name)}.png', np.squeeze(simg))
+        print("SPRITES-SAVED!!!")
+
+    def generate_random_sample(self, total=5000):
+        ids = random.sample(range(0, self.y_train.shape[0]), total)
+        x_train = self.x_train[ids]
+        y_train = self.y_train[ids]
+        self.create_embeddings(x_train, name=f"-{total}")
+        self.create_tensor_labels(y_train=y_train, name=f"-{total}")
+        self.to_sprites(x_train)
+
+    def generate_sample(self, name):
+        label = self.dataframe[self.dataframe['name'] == name].iloc[0, 1] # row x col
+        ids = []
+        for i in tqdm(self.y_train):
+            if self.y_train[i] == label:
+                ids.append(i)
+        print(ids)
+        x_train = self.x_train[ids]
+        y_train = self.y_train[ids]
+
+        self.create_embeddings(x_train, name=f"-{name}")
+        self.create_tensor_labels(y_train=y_train, name=f"-{name}")
+        self.to_sprites(x_train, name=f"-{name}")

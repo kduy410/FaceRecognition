@@ -1,6 +1,7 @@
 import os
-from keras.applications.vgg16 import decode_predictions
-from keras.callbacks import ModelCheckpoint, CSVLogger
+from tensorflow.keras.applications.vgg16 import decode_predictions
+from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger
+from tensorflow.keras.models import model_from_json
 from keras.callbacks.tensorboard_v1 import TensorBoard
 from skimage.exposure import rescale_intensity
 import argparse
@@ -8,6 +9,8 @@ from keras import backend as K
 import dlib
 import model as m
 from sklearn import model_selection
+
+import visualize
 from align import AlignDlib
 import traceback
 import sys
@@ -475,6 +478,10 @@ def main():
     # image = cv2.imread("D:/Data/irene.png", cv2.IMREAD_GRAYSCALE)
     # image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
     # predictor(image, embs, y_train, df_train, model)
+
+    v = visualize.Visualize()
+    v.generate_sample('Irene')
+    # v.generate_sample(5000)
 
 
 if __name__ == "__main__":
