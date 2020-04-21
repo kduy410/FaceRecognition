@@ -1,4 +1,6 @@
 import os
+from datetime import datetime
+
 from keras.applications.vgg16 import decode_predictions
 from keras.callbacks import ModelCheckpoint, CSVLogger
 from keras.callbacks.tensorboard_v1 import TensorBoard
@@ -247,7 +249,7 @@ def create_model():
     print(vgg_model.batch_size)
     model = vgg_model.deep_rank_model(input_shape=x_train.shape[1:])
     print("Loading pre-trained weight")
-    weights_path = f'weights/triplet_weight_1_221_1.hdf5'
+    weights_path = f'weights/triplet_weight_1_221_01.hdf5'
     if os.path.exists(weights_path):
         try:
             model.load_weights(weights_path)
@@ -271,7 +273,9 @@ def create_model():
                                  save_best_only=True,
                                  mode='min')
     csv_logger = CSVLogger('csv_logger.log', separator=',', append=True)
-    callbacks_list = [checkpoint, csv_logger]
+    log_dir = "logs/221/" + datetime.now().strftime("%Y%m%d-%H%M%S")
+    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+    callbacks_list = [checkpoint, csv_logger, tensorboard_callback]
     try:
         model.fit_generator(generator=vgg_model.image_batch_generator(x_train, y_train, vgg_model.batch_size),
                             steps_per_epoch=len(x_train) // vgg_model.batch_size,

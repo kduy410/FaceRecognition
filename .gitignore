@@ -69,3 +69,7 @@ y_tests.npy
 /x_train_96_1_shuffle.npy
 /y_test_96_1_shuffle.npy
 /y_train_96_1_shuffle.npy
+/model.hdf5
+/x_train_221_shuffle.npy
+/y_train_221_shuffle.npy
+/logs/

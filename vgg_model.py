@@ -10,6 +10,7 @@ batch_size = 24
 _EPSILON = K.epsilon()
 x = None
 
+
 def _loss_tensor(y_true, y_pred):
     global _EPSILON, batch_size
     y_pred = K.clip(y_pred, _EPSILON, 1.0 - _EPSILON)
@@ -34,17 +35,12 @@ def image_batch_generator(images, labels, batch_size):
     while True:
         batch_paths = np.random.choice(a=len(images), size=batch_size // 3)
         input_1 = []
-
         for i in batch_paths:
             pos = np.where(labels == labels[i])[0]
             neg = np.where(labels != labels[i])[0]
-
-            if len(pos) is not 1:
+            j = np.random.choice(pos)
+            while j == i:
                 j = np.random.choice(pos)
-                while j == i:
-                    j = np.random.choice(pos)
-            else:
-                j = i
 
             k = np.random.choice(neg)
             while k == i:
