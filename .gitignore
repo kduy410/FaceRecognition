@@ -72,4 +72,4 @@ y_tests.npy
 /model.hdf5
 /x_train_221_shuffle.npy
 /y_train_221_shuffle.npy
-/logs/
+/logs/*
