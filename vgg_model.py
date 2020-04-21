@@ -6,10 +6,9 @@ from tensorflow.keras.layers import GlobalAveragePooling2D, Dense, Dropout, Lamb
 import functools
 import numpy as np
 
-batch_size = 54
+batch_size = 24
 _EPSILON = K.epsilon()
 x = None
-
 
 def _loss_tensor(y_true, y_pred):
     global _EPSILON, batch_size
@@ -66,11 +65,10 @@ def convnet_model_(input_shape):
     x = vgg_model.output
     x = GlobalAveragePooling2D()(x)
     x = Dense(4096, activation='relu')(x)
-    x = Dropout(rate=0.5)(x)
+    x = Dropout(rate=0.6)(x)
     x = Dense(4096, activation='relu')(x)
-    x = Dropout(rate=0.5)(x)
+    x = Dropout(rate=0.6)(x)
     x = Lambda(lambda x: K.l2_normalize(x, axis=1))(x)
-    #     x = Lambda(K.l2_normalize)(x)
 
     convnet_model = Model(inputs=vgg_model.input, outputs=x)
     return convnet_model
@@ -79,7 +77,6 @@ def convnet_model_(input_shape):
 def deep_rank_model(input_shape):
     global x
     convnet_model = convnet_model_(input_shape)
-
     first_input = Input(shape=input_shape)
     first_conv = Conv2D(96, kernel_size=(8, 8), strides=(16, 16), padding='same')(first_input)
     first_max = MaxPool2D(pool_size=(3, 3), strides=(2, 2), padding='same')(first_conv)
@@ -95,10 +92,7 @@ def deep_rank_model(input_shape):
     merge_one = concatenate([first_max, second_max])
     merge_two = concatenate([merge_one, convnet_model.output])
     emb = Dense(4096)(merge_two)
-    # emb = Dense(128)(emb)
-    # Experiment
-    emb = Dense(96)(emb)
-    # Experiment
+    emb = Dense(128)(emb)
 
     l2_norm_final = Lambda(lambda x: K.l2_normalize(x, axis=1))(emb)
     """
