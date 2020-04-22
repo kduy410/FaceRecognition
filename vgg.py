@@ -1,6 +1,9 @@
 import os
 from datetime import datetime
-
+from tensorflow.keras.applications.vgg16 import decode_predictions
+from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger
+from tensorflow.keras.models import model_from_json
+from datetime import datetime
 from keras.applications.vgg16 import decode_predictions
 from keras.callbacks import ModelCheckpoint, CSVLogger
 from keras.callbacks.tensorboard_v1 import TensorBoard
@@ -10,6 +13,8 @@ from keras import backend as K
 import dlib
 import model as m
 from sklearn import model_selection
+
+import visualize
 from align import AlignDlib
 import traceback
 import sys
@@ -308,15 +313,9 @@ def predictor(image, embs, labels, df, model):
         w = face.right() - x
         h = face.bottom() - y
 
-        # draw green box over face which detect by hog + svm
-        # cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
-
-        # Get vector embeding
         frame = image[y:y + h, x:x + w]
         frame = cv2.resize(frame, (221, 221))
-        # frame = align_face(frame, 96)
-        # frame = (frame / 255.).astype(np.float32)
-        # frame = frame / 255.
+        frame = frame / 255.
         display_one(frame)
         frame = np.expand_dims(frame, axis=0)
         emb = model.predict([frame, frame, frame])
@@ -356,14 +355,14 @@ def main():
     # create_training_data(r'D:/Data/images/faces', f'x_train_{required_size[0]}_shuffle',
     #                      f'y_train_{required_size[0]}_shuffle',
     #                      required_size=required_size, shuffle=True)
-    # create_training_data(r'D:/Data/images/faces', f'x_test_{required_size[0]}',
-    #                      f'y_test_{required_size[0]}_1_shuffle',
+    # create_training_data(r'D:/Data/images/faces', f'x_test_{required_size[0]}_shuffle',
+    #                      f'y_test_{required_size[0]}_shuffle',
     #                      required_size=required_size, shuffle=True)
 
     # create_model()
     # x_train = np.load('x_train_221_shuffle.npy')
     # y_train = np.load('y_train_221_shuffle.npy')
-    #
+
     # model = vgg_model.deep_rank_model(input_shape=(221, 221, 3))
     # model.load_weights(r"C:\FaceRecognition\weights\triplet_weights_1_221_73.hdf5")
     # model.summary()
@@ -385,6 +384,11 @@ def main():
     # image = cv2.imread(r'D:\Data\irene.jpg')
     # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     # predictor(image, embs, y_train, df_train, model)
+
+    # v = visualize.Visualize()
+    # v.generate_sample('Yeri')
+    # v.generate_sample('Irene')
+    # v.generate_sample(5000)
 
 
 if __name__ == "__main__":
