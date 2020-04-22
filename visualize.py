@@ -1,5 +1,7 @@
 import pickle
 import random
+import sys
+import traceback
 
 import numpy as np
 from imageio import imwrite
@@ -93,7 +95,16 @@ class Visualize:
         self.to_sprites(x_train)
 
     def generate_sample(self, name):
-        label = self.dataframe[self.dataframe['name'] == name].iloc[0, 1] # row x col
+        try:
+            # row x col
+            label = self.dataframe[self.dataframe['name'] == name].iloc[0, 1]
+        except IndexError as ie:
+            print(f"{name} not found!")
+            exc_info = sys.exc_info()
+            traceback.print_exception(*exc_info)
+            del exc_info
+            return
+
         ids = []
         for i in tqdm(self.y_train):
             if self.y_train[i] == label:

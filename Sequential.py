@@ -480,7 +480,7 @@ def main():
     # predictor(image, embs, y_train, df_train, model)
 
     v = visualize.Visualize()
-    v.generate_sample('Irene')
+    v.generate_sample('Yeri')
     # v.generate_sample(5000)
 
 

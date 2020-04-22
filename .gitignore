@@ -27,3 +27,9 @@ sequential
 *.[tsv]
 *.[bytes]
 /data/
+/embs96.npy
+/embs96-DENSE.npy
+/embs96-test-5.npy
+/embs-96.npy
+/LFW_96_Irene_labels.tsv
+/LFW_96_Irene_tensor.bytes
