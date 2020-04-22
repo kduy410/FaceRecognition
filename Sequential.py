@@ -2,6 +2,9 @@ import os
 from tensorflow.keras.applications.vgg16 import decode_predictions
 from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger
 from tensorflow.keras.models import model_from_json
+from datetime import datetime
+from keras.applications.vgg16 import decode_predictions
+from keras.callbacks import ModelCheckpoint, CSVLogger
 from keras.callbacks.tensorboard_v1 import TensorBoard
 from skimage.exposure import rescale_intensity
 import argparse
@@ -59,8 +62,8 @@ print("MTCNN-version :", mtcnn.__version__)
 
 DATA_DIR = r"D:\Data\train"
 DATA_TEST_DIR = r"D:\Data\test"
-DATAFRAME_PATH = r'dataframe_1.zip'
-alignment = AlignDlib('weights/shape_predictor_68_face_landmarks.dat')
+DATAFRAME_PATH = r'dataframe.zip'
+# alignment = AlignDlib('weights/shape_predictor_68_face_landmarks.dat')
 hog_detector = dlib.get_frontal_face_detector()
 
 
@@ -106,10 +109,14 @@ def create_data_frame(data_path, save=False):
         name = train_path.split('\\')[-1]
         print(f"\n{name}")
         images = glob(train_path + r"\*")
-        for image in images:
-            df_train.loc[len(df_train)] = [image, index, name]
+        if len(images) > 1:
+            for image in images:
+                df_train.loc[len(df_train)] = [image, index, name]
+        else:
+            continue
     print(len(df_train))
     if save is True:
+        print("SAVING DATA-FRAME")
         compression_opts = dict(method='zip',
                                 archive_name='dataframe.csv')
         df_train.to_csv(DATAFRAME_PATH, index=False, compression=compression_opts)
@@ -118,9 +125,8 @@ def create_data_frame(data_path, save=False):
 
 
 # mnist_1 = keras_vggface.vggface
-def create_training_data(directory_path, data_name, label_name, required_size=(224, 224),
+def create_training_data(directory_path, data_name, label_name, required_size=(221, 221),
                          shuffle=False):
-    # CREATE TRAINING DATA FROM PREPROCESSED DATA
     if os.path.exists(DATAFRAME_PATH):
         df_train = pd.read_csv(DATAFRAME_PATH, compression='zip')
         print(f"\n{len(df_train)}")
@@ -128,31 +134,22 @@ def create_training_data(directory_path, data_name, label_name, required_size=(2
         df_train = create_data_frame(directory_path, save=True)
         print(f"\n{len(df_train)}")
     training_data = []
-
     print(f"\nINFO={df_train.info()}")
     print(f"\nLENGTH={len(df_train)}")
     print(f"\nSHAPE={df_train.shape}")
 
     for index, row in tqdm(df_train.iterrows()):
         try:
-            img = Image.open(row['image'])
-            img.load()
-            img_array = np.array(img).astype(dtype=np.uint8)
+            image = cv2.imread(row['image'])
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-            if type(img_array) is np.ndarray:
-                if img_array.shape[-1] != 3:
-                    if img_array.shape[-1] == 4:  # RGBA
-                        img_array = cv2.cvtColor(img_array, cv2.COLOR_RGBA2RGB)
-                        print(f"CONVERTED={img_array.shape}")
-                    else:  # GRAYSCALE
-                        img_array = cv2.cvtColor(img_array, cv2.COLOR_GRAY2RGB)
-                        print(f"CONVERTED={img_array.shape}")
-                if img_array.shape[:2] != required_size:
-                    print(f"SHAPE DON'T MATCH={img_array.shape}")
-                    img_array = cv2.resize(img_array, required_size, interpolation=cv2.INTER_LINEAR)
-                    print(f"SHAPE RESIZED={img_array.shape}")
-
-                training_data.append([img_array, row['label']])
+            if type(image) is np.ndarray:
+                if image.shape[:2] != required_size:
+                    print(row['image'])
+                    print(f"SHAPE DON'T MATCH={image.shape}")
+                    img_array = cv2.resize(image, required_size, interpolation=cv2.INTER_LINEAR)
+                    print(f"SHAPE RESIZED={image.shape}")
+                training_data.append([image, row['label']])
 
         except Exception as e:
             print(f"ERROR-{row['image']}")
@@ -200,16 +197,14 @@ def display(a, b, title1="Original", title2="Edited"):
     plt.show()
 
 
-def align_face(face, image_size):
-    (h, w, c) = face.shape
-    bb = dlib.rectangle(0, 0, w, h)
-    return alignment.align(image_size, face, bb, landmarkIndices=AlignDlib.INNER_EYES_AND_BOTTOM_LIP)
+# def align_face(face, image_size):
+#     (h, w, c) = face.shape
+#     bb = dlib.rectangle(0, 0, w, h)
+#     return alignment.align(image_size, face, bb, landmarkIndices=AlignDlib.OUTER_EYES_AND_NOSE)
 
 
 # Preprocessing
-def preprocessing(directory_path, save_path, required_size=(224, 224)):
-    # create the detector, using default weights
-    # detector = mtcnn.MTCNN()
+def preprocessing(directory_path, save_path, required_size=(221, 221)):
     detector = dlib.get_frontal_face_detector()
     train_paths = glob(fr"{directory_path}\*")
 
@@ -219,66 +214,23 @@ def preprocessing(directory_path, save_path, required_size=(224, 224)):
         for image_path in tqdm(images):
             try:
                 temp_path = image_path.split("\\")[-1]
-                # load image from file
-                image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
-
-                # ----------------------------------
-                # Convert to RGB
+                image = cv2.imread(image_path)
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-                # # ----------------------------------
-                # # Remove noise
-                # # Gaussian
-                # image = cv2.GaussianBlur(image, (5, 5), 0)
-                #
-                # # ----------------------------------
-                # # Denoising of image saving it into dst image
-                # image = cv2.addWeighted(image, 1.5, image, -0.5, 0, image)
-
-                # ----------------------------------
-                # Face Cropping
-                # Detect faces in the image
-                # face_recs = detector.detect_faces(image)
-                face_recs = detector(image, 0)
-                # Extract the bounding box from the first face
-                # x1, y1, width, height = face_recs[0]['box']
-                # x2, y2 = x1 + width, y1 + height
-                face_recs = face_recs[0]
-                if face_recs is None:
+                face_recs = detector(image, 1)
+                face = None
+                if len(face_recs) == 1:
+                    x = face_recs[0].left()
+                    y = face_recs[0].top()
+                    w = face_recs[0].right() - x
+                    h = face_recs[0].bottom() - y
+                    face = cv2.resize(image[y:y + h, x:x + w], required_size, interpolation=cv2.INTER_LINEAR)
+                else:
                     continue
-
-                x1 = face_recs.left()
-                y1 = face_recs.top()
-                x2 = face_recs.right()
-                y2 = face_recs.bottom()
-
-                # Extract the face
-                face = image[y1:y2, x1:x2]
-
-                # # NORMALIZE
-                # # --------------------------------
-                # norm_face = cv2.normalize(face, required_size, 0, 255, cv2.NORM_MINMAX)
-
-                # # ----------------------------------
-                # # Face straightening
-                # face_rotated = align_face(norm_face, required_size[0])
-                # face_rotated = (face_rotated / 255.).astype(np.float32)
-
-                # RESIZE
-                # --------------------------------
-                face = cv2.resize(face, required_size, interpolation=cv2.INTER_LINEAR)
-
-                # Convert to array
-                # --------------------------------
-
-                # face = np.asarray(face)
-                # face = tf.image.convert_image_dtype(face, dtype=tf.uint8, saturate=False)
-
                 if not os.path.exists(fr"{save_path}/{name}"):
                     os.mkdir(fr"{save_path}/{name}")
-                    imsave(fr"{save_path}/{name}/{temp_path}", face, format='JPEG')
+                    imsave(fr"{save_path}/{name}/{temp_path}", face)
                 else:
-                    imsave(fr"{save_path}/{name}/{temp_path}", face, format='JPEG')
+                    imsave(fr"{save_path}/{name}/{temp_path}", face)
             except Exception as e:
                 print(e)
                 exc_info = sys.exc_info()
@@ -287,42 +239,9 @@ def preprocessing(directory_path, save_path, required_size=(224, 224)):
                 pass
 
 
-def seq_model(input_shape=(224, 224, 3), classes=10):
-    return Sequential([
-        Conv2D(32, (3, 3), activation='relu', input_shape=(224, 224, 3)),
-        Flatten(),
-        Dense(64, input_shape=input_shape, activation='relu'),
-        Dense(128, activation='relu'),
-        Dense(classes, activation='softmax')
-    ])
-
-
-def plot_confusion_matrix(cm, classes, normalize=False, title="Confusion matrix", cmap=plt.cm.Blues):
-    plt.imshow(cm, interpolation="nearest", cmap=cmap)
-    plt.title(title)
-    plt.colorbar()
-    tick_marks = np.arange(len(classes))
-    plt.xticks(tick_marks, classes, rotation=45)
-    plt.yticks(tick_marks, classes)
-    if normalize:
-        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-        print("Normalized confusion matrix")
-    else:
-        print("Confusion matrix, without normalization")
-    print(cm)
-    thresh = cm.max() / 2
-    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
-        plt.text(j, i, cm[i, j],
-                 horizontalalignment="center",
-                 color="white" if cm[i, j] > thresh else "black")
-    plt.tight_layout()
-    plt.ylabel("True label")
-    plt.xlabel("Prediction label")
-
-
 def create_model():
-    x_train = np.load('x_train_96_1_shuffle.npy')
-    y_train = np.load('y_train_96_1_shuffle.npy')
+    x_train = np.load('x_train_221_shuffle.npy')
+    y_train = np.load('y_train_221_shuffle.npy')
 
     print(f"X-TRAIN-SHAPE:{x_train.shape},\tDTYPE: {x_train.dtype}")
     print(f"Y-TRAIN-SHAPE:{y_train.shape},\tDTYPE: {y_train.dtype}")
@@ -330,12 +249,11 @@ def create_model():
     print(f"\nCLASS NUMBER: {num_classes}")
     # classes = np.unique(y_train)
 
-    vgg_model.batch_size = 42
+    vgg_model.batch_size = 9
     print(vgg_model.batch_size)
     model = vgg_model.deep_rank_model(input_shape=x_train.shape[1:])
-
     print("Loading pre-trained weight")
-    weights_path = f'weights/models-DENSEFINAL96/triplet_weights_model-DENSE-FINAL-96-144-5.hdf5'
+    weights_path = f'weights/triplet_weights_1_221_01.hdf5'
     if os.path.exists(weights_path):
         try:
             model.load_weights(weights_path)
@@ -346,16 +264,12 @@ def create_model():
             traceback.print_exception(*exc_info)
             del exc_info
             pass
-
     else:
         print(f"Paths don't exists, start training from scratch!")
-
     model.summary()
-
     model.compile(optimizer=tf.optimizers.SGD(lr=0.001, momentum=0.9, nesterov=True),
                   loss=vgg_model._loss_tensor)
-
-    checkpoint = ModelCheckpoint("weights/models-DENSEFINAL96/triplet_weights_model-DENSE-FINAL-96-{epoch:02d}-6.hdf5",
+    checkpoint = ModelCheckpoint("weights/triplet_weights_1_221_{epoch:02d}.hdf5",
                                  period=1,
                                  verbose=1,
                                  monitor='loss',
@@ -363,15 +277,15 @@ def create_model():
                                  save_best_only=True,
                                  mode='min')
     csv_logger = CSVLogger('csv_logger.log', separator=',', append=True)
+    log_dir = fr".\logs\221\{str(datetime.now().strftime('%Y%m%d-%H%M%S'))}"
+    tensorboard = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+    callbacks_list = [checkpoint, csv_logger, tensorboard]
+    # tensorboard --logdir=./logs --host=127.0.0.1
 
-    # NAME = f"VGG_MODEL_96_FINALDENSE-{int(time.time())}"
-    # tensorboard = TensorBoard(log_dir=f'logs\{NAME}')
-
-    callbacks_list = [checkpoint, csv_logger]
     try:
         model.fit_generator(generator=vgg_model.image_batch_generator(x_train, y_train, vgg_model.batch_size),
                             steps_per_epoch=len(x_train) // vgg_model.batch_size,
-                            epochs=100,
+                            epochs=400,
                             verbose=1,
                             callbacks=callbacks_list)
     except TypeError as te:
@@ -381,7 +295,7 @@ def create_model():
         del exc_info
         pass
 
-    model.save_weights("weights/best/vgg_best_weights.hdf5")
+    # model.save_weights("weights/best/vgg_best_weights.hdf5")
 
 
 def predictor(image, embs, labels, df, model):
@@ -404,7 +318,10 @@ def predictor(image, embs, labels, df, model):
         # Get vector embeding
         frame = image[y:y + h, x:x + w]
         frame = cv2.resize(frame, (96, 96))
-        frame = frame / 255.
+        # frame = align_face(frame, 96)
+        # frame = (frame / 255.).astype(np.float32)
+        # frame = frame / 255.
+        display_one(frame)
         frame = np.expand_dims(frame, axis=0)
         emb = model.predict([frame, frame, frame])
 
@@ -436,51 +353,51 @@ def predictor(image, embs, labels, df, model):
 
 
 def main():
-    required_size = (96, 96)
-    # create_data_frame('D:/Data/images/faces', True)
-    # preprocessing(r"D:\Data\images\images", r"D:\Data\images\faces1", required_size=required_size)
-    # create_training_data_sequential(DATA_DIR, 224, 'x_train', 'y_train')
-    # create_training_data(r'D:/Data/images/faces', f'x_train_{required_size[0]}_1_shuffle',
-    #                      f'y_train_{required_size[0]}_1_shuffle',
+    required_size = (221, 221)
+
+    # preprocessing(r"D:\Data\images\lfw", r"D:\Data\images\faces", required_size=required_size)
+    create_data_frame('D:/Data/images/faces', save=True)
+    # create_training_data(r'D:/Data/images/faces', f'x_train_{required_size[0]}_shuffle',
+    #                      f'y_train_{required_size[0]}_shuffle',
     #                      required_size=required_size, shuffle=True)
-    # create_training_data(r'D:/Data/images/faces', f'x_test_{required_size[0]}_1_shuffle',
-    #                      f'y_test_{required_size[0]}_1_shuffle',
-    #                      required_size=required_size, shuffle=True)
-    #
-    # create_model()
+    create_training_data(r'D:/Data/images/faces', f'x_test_{required_size[0]}_shuffle',
+                         f'y_test_{required_size[0]}_shuffle',
+                         required_size=required_size, shuffle=True)
+
+    create_model()
     # x_train = np.load('x_train_96_1_shuffle.npy')
     # y_train = np.load('y_train_96_1_shuffle.npy')
     #
     # model = vgg_model.deep_rank_model(input_shape=x_train.shape[1:])
-    # model.load_weights(r"C:\FaceRecognition\weights\models-DENSEFINAL96\triplet_weights_model-DENSE-FINAL-96-144-5.hdf5")
+    # model.load_weights(r"C:\FaceRecognition\weights\models-DENSEFINAL96\triplet_weights-192-8-96.hdf5")
     # model.summary()
-    # model.save('model/vgg-model.h5')
-    # model_json = model.to_json()
-    # with open("config.json", "w") as json_file:
-    #     json_file.write(model_json)
+
     # embs96 = []
     # for x in tqdm(x_train):
-    #     image = x / 255.
-    #     image = np.expand_dims(image, axis=0)
+    #     # image = x / 255.
+    #     image = np.expand_dims(x, axis=0)
     #     emb128 = model.predict([image, image, image])
     #     embs96.append(emb128[0])
     #     del image
-    #
     # embs96 = np.array(embs96)
     # print(embs96.shape)
-    # np.save('embs96-DENSE', embs96)
-
-    # embs = np.load('embs96-DENSE.npy')
-    #
+    # np.save('embs96', embs96)
+    # embs = np.load('embs96.npy')
     # df_train = pd.read_csv('dataframe_1.zip')
-    #
     # print(len(df_train))
-    # image = cv2.imread("D:/Data/irene.png", cv2.IMREAD_GRAYSCALE)
-    # image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+    #
+    # image = cv2.imread(r'D:\Data\aaron.jpg', cv2.IMREAD_UNCHANGED)
+    # cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    # imsave(r"D:\Data\temp", format="JPEG")
+    # img = Image.open(r"D:\Data\temp")
+    # img.load()
+    # img_array = np.array(img).astype(dtype=np.uint8)
+    #
     # predictor(image, embs, y_train, df_train, model)
 
-    v = visualize.Visualize()
-    v.generate_sample('Yeri')
+    # v = visualize.Visualize()
+    # v.generate_sample('Yeri')
+    # v.generate_sample('Irene')
     # v.generate_sample(5000)
 
 

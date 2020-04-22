@@ -2,7 +2,6 @@ import pickle
 import random
 import sys
 import traceback
-
 import numpy as np
 from imageio import imwrite
 import pandas as pd
