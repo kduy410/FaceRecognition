@@ -356,13 +356,13 @@ def main():
     required_size = (221, 221)
 
     # preprocessing(r"D:\Data\images\lfw", r"D:\Data\images\faces", required_size=required_size)
-    create_data_frame('D:/Data/images/faces', save=True)
+    # create_data_frame('D:/Data/images/faces', save=True)
     # create_training_data(r'D:/Data/images/faces', f'x_train_{required_size[0]}_shuffle',
     #                      f'y_train_{required_size[0]}_shuffle',
     #                      required_size=required_size, shuffle=True)
-    create_training_data(r'D:/Data/images/faces', f'x_test_{required_size[0]}_shuffle',
-                         f'y_test_{required_size[0]}_shuffle',
-                         required_size=required_size, shuffle=True)
+    # create_training_data(r'D:/Data/images/faces', f'x_test_{required_size[0]}_shuffle',
+    #                      f'y_test_{required_size[0]}_shuffle',
+    #                      required_size=required_size, shuffle=True)
 
     # create_model()
     # x_train = np.load('x_train_96_1_shuffle.npy')
