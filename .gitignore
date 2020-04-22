@@ -73,3 +73,4 @@ y_tests.npy
 /x_train_221_shuffle.npy
 /y_train_221_shuffle.npy
 /logs/*
+/embs221.npy

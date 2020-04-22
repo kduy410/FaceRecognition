@@ -309,11 +309,11 @@ def predictor(image, embs, labels, df, model):
         h = face.bottom() - y
 
         # draw green box over face which detect by hog + svm
-        cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        # cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
         # Get vector embeding
         frame = image[y:y + h, x:x + w]
-        frame = cv2.resize(frame, (96, 96))
+        frame = cv2.resize(frame, (221, 221))
         # frame = align_face(frame, 96)
         # frame = (frame / 255.).astype(np.float32)
         # frame = frame / 255.
@@ -360,35 +360,30 @@ def main():
     #                      f'y_test_{required_size[0]}_1_shuffle',
     #                      required_size=required_size, shuffle=True)
 
-    create_model()
-    # x_train = np.load('x_train_96_1_shuffle.npy')
-    # y_train = np.load('y_train_96_1_shuffle.npy')
+    # create_model()
+    # x_train = np.load('x_train_221_shuffle.npy')
+    # y_train = np.load('y_train_221_shuffle.npy')
     #
-    # model = vgg_model.deep_rank_model(input_shape=x_train.shape[1:])
-    # model.load_weights(r"C:\FaceRecognition\weights\models-DENSEFINAL96\triplet_weights-192-8-96.hdf5")
+    # model = vgg_model.deep_rank_model(input_shape=(221, 221, 3))
+    # model.load_weights(r"C:\FaceRecognition\weights\triplet_weights_1_221_73.hdf5")
     # model.summary()
 
-    # embs96 = []
+    # embs = []
     # for x in tqdm(x_train):
-    #     # image = x / 255.
+    #     image = x / 255.
     #     image = np.expand_dims(x, axis=0)
-    #     emb128 = model.predict([image, image, image])
-    #     embs96.append(emb128[0])
+    #     emb = model.predict([image, image, image])
+    #     embs.append(emb[0])
     #     del image
-    # embs96 = np.array(embs96)
+    # embs96 = np.array(embs)
     # print(embs96.shape)
-    # np.save('embs96', embs96)
-    # embs = np.load('embs96.npy')
-    # df_train = pd.read_csv('dataframe_1.zip')
+    # np.save('embs221', embs96)
+    # embs = np.load('embs221.npy')
+    # df_train = pd.read_csv('dataframe.zip')
     # print(len(df_train))
     #
-    # image = cv2.imread(r'D:\Data\aaron.jpg', cv2.IMREAD_UNCHANGED)
-    # cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    # imsave(r"D:\Data\temp", format="JPEG")
-    # img = Image.open(r"D:\Data\temp")
-    # img.load()
-    # img_array = np.array(img).astype(dtype=np.uint8)
-    #
+    # image = cv2.imread(r'D:\Data\irene.jpg')
+    # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     # predictor(image, embs, y_train, df_train, model)
 
 
