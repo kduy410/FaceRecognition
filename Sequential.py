@@ -364,7 +364,7 @@ def main():
                          f'y_test_{required_size[0]}_shuffle',
                          required_size=required_size, shuffle=True)
 
-    create_model()
+    # create_model()
     # x_train = np.load('x_train_96_1_shuffle.npy')
     # y_train = np.load('y_train_96_1_shuffle.npy')
     #

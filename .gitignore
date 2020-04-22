@@ -11,17 +11,12 @@ pip-selfcheck.json
 logs
 sequential.model
 sequential
-<<<<<<< HEAD
-*.pickle
-*.csv
-*.jpg
-=======
 *.[pickle]
 *.[csv]
 *.[jpg]
 *.[h5]
-*.[npy]
-*.[zip]
+*.npy
+*.zip
 *.[tsv]
 *.[bytes]
 /weights/
@@ -32,5 +27,4 @@ sequential
 /__pycache__/
 /model/
 /data/*
-/LFW_96_Irene_labels.tsv
-/LFW_96_Irene_tensor.bytes
+/data/
