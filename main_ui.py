@@ -2,21 +2,30 @@ import os
 import subprocess
 from tkinter import *
 from tkinter import filedialog
+from tkinter.font import Font
 from tkinter.ttk import Style
 import sys
+import cv2
+from PIL import ImageTk, Image
 
 
 class GUI(Frame):
+    IMAGE_EXTENSIONS = ('.png', '.jpg', '.jpeg')
+    VIDEO_EXTENSIONS = ('.mp4', '.avi', '.wmv', '.flv')
+    IMAGES = []
+    image = None
+    index = 0
     DATA_PART = ""
     WEIGHTS = ""
+    image_size = 221, 221
 
     def __init__(self):
         super().__init__()
         self.log = Logger()
-        self.frm_main = Frame(master=self, bg="red", width=600, height=400)
-        self.frm_right = Frame(master=self, bg="green", width=120, height=400, relief=RAISED, borderwidth=1)
-        self.frm_bottom = Frame(master=self, bg="blue", width=600, height=40)
-        self.frm_console = Frame(master=self, bg="white", width=600, height=80)
+        self.frm_main = Frame(master=self, bg="red", width=720, height=480)
+        self.frm_right = Frame(master=self, bg="green", width=120, height=480, relief=RAISED, borderwidth=1)
+        self.frm_bottom = Frame(master=self, bg="blue", width=720, height=40)
+        self.frm_console = Frame(master=self, bg="white", width=720, height=80)
 
         self.btn_file = Button(master=self.frm_right, text="File",
                                bg="white",
@@ -40,14 +49,16 @@ class GUI(Frame):
                                  fg="black")
         self.btn_left = Button(master=self.frm_bottom, text="<<<",
                                bg="white",
-                               fg="black")
+                               fg="black",
+                               command=self.left)
 
         self.btn_capture = Button(master=self.frm_bottom, text="Capture",
                                   bg="white",
                                   fg="black")
         self.btn_right = Button(master=self.frm_bottom, text=">>>",
                                 bg="white",
-                                fg="black")
+                                fg="black",
+                                command=self.right)
         self.scroll_bar = Scrollbar(master=self.frm_console, orient=VERTICAL)
         self.eula = Text(master=self.frm_console, font=('Arial', 10), wrap=None,
                          yscrollcommand=self.scroll_bar.set, undo=True)
@@ -57,7 +68,7 @@ class GUI(Frame):
         self.style = Style()
         self.style.theme_use("default")
         self.style.configure(style="TButton", font=('FreeSens', 5))
-
+        self.lbl_image = Label(master=self.frm_main, width=720, height=480)
         self.init_ui()
 
     def init_ui(self):
@@ -85,6 +96,7 @@ class GUI(Frame):
         self.btn_capture.grid(row=0, column=1, padx=5, sticky='ew')
         self.btn_right.grid(row=0, column=2, padx=10, sticky='ew')
 
+        self.lbl_image.pack(fill=BOTH, side=TOP, expand=True)
         self.frm_console.pack(fill=BOTH, side=BOTTOM, expand=True)
         self.frm_right.pack(fill=BOTH, side=RIGHT, expand=True)
         self.frm_bottom.pack(fill=BOTH, side=BOTTOM, expand=True)
@@ -98,20 +110,59 @@ class GUI(Frame):
 
     def open_file(self):
         self.log.start()
-
         file_path = filedialog.askopenfilename(parent=self.master, title="Please select a file")
         try:
             if len(file_path) > 0:
-                print("You choose %s" % file_path)
+                print(file_path)
                 if os.path.isfile(file_path):
-                    self.WEIGHTS = file_path
-                else:
-                    print("This is not a file")
-                    return
+                    if file_path.lower().endswith(self.IMAGE_EXTENSIONS):
+                        image = cv2.imread(file_path)
+                        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                        image = cv2.resize(image, (720, 480), fx=0.5, fy=0.5, interpolation=cv2.INTER_LINEAR)
+                        self.append(image)
+                        self.image = ImageTk.PhotoImage(image=Image.fromarray(image))
+                        self.lbl_image.config(anchor='nw', image=self.image)
+
+                    elif file_path.lower().endswith(self.VIDEO_EXTENSIONS):
+                        # do something
+                        return
+                    else:
+                        print("Unknown file type, please choose again")
+                        self.print_to_GUI()
+                        return
         except AttributeError as ae:
             print(str(ae))
-
         self.print_to_GUI()
+
+    def append(self, image):
+        self.IMAGES.append(image)
+        self.index = len(self.IMAGES) - 1
+
+    def left(self):
+        print("You click left")
+        for i, _ in enumerate(self.IMAGES):
+            if i == self.index:
+                if i == 0:
+                    print('This is the first image')
+                    return
+                else:
+                    self.index = self.index - 1
+                    self.image = ImageTk.PhotoImage(image=Image.fromarray(self.IMAGES[self.index]))
+                    self.lbl_image.config(anchor='nw', image=self.image)
+                    break
+
+    def right(self):
+        print('You click right')
+        for i, _ in enumerate(self.IMAGES):
+            if i == self.index:
+                if self.index + 1 == len(self.IMAGES):
+                    print('This is the last image')
+                    return
+                else:
+                    self.index = self.index + 1
+                    self.image = ImageTk.PhotoImage(image=Image.fromarray(self.IMAGES[self.index]))
+                    self.lbl_image.config(anchor='nw', image=self.image)
+                    break
 
 
 class Logger:
@@ -130,7 +181,7 @@ class Logger:
 
 def main():
     root = Tk()
-    # root.geometry("720x520+300+0")
+    root.geometry("840x600+300+0")
     application = GUI()
     root.mainloop()
 
