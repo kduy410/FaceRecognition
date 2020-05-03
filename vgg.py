@@ -20,7 +20,7 @@ import traceback
 import sys
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
-from keras.layers import Input
+from keras.layers import Input, Lambda
 from tensorflow.keras.preprocessing.image import ImageDataGenerator, NumpyArrayIterator
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.models import Sequential, load_model
@@ -252,31 +252,37 @@ def create_model():
 
     vgg_model.batch_size = 9
     print(vgg_model.batch_size)
-    model = vgg_model.deep_rank_model(input_shape=x_train.shape[1:])
-    print("Loading pre-trained weight")
-    weights_path = f'weights/triplet_weights_1_221_01.hdf5'
-    if os.path.exists(weights_path):
-        try:
-            model.load_weights(weights_path)
-            print("SUCCESSFULLY LOADED!!!")
-        except ValueError as ve:
-            print(ve)
-            exc_info = sys.exc_info()
-            traceback.print_exception(*exc_info)
-            del exc_info
-            pass
-    else:
-        print(f"Paths don't exists, start training from scratch!")
+
+    model = load_model(f'weights/triplet_models_5_221_40.h5',
+                       compile=False)
+
+    # model = vgg_model.deep_rank_model(input_shape=x_train.shape[1:])
+    # print("Loading pre-trained weight")
+    # weights_path = f'weights/triplet_weights_5_221_58.hdf5'
+    # if os.path.exists(weights_path):
+    #     try:
+    #         model.load_weights(weights_path)
+    #         print("SUCCESSFULLY LOADED!!!")
+    #     except ValueError as ve:
+    #         print(ve)
+    #         exc_info = sys.exc_info()
+    #         traceback.print_exception(*exc_info)
+    #         del exc_info
+    #         pass
+    # else:
+    #     print(f"Paths don't exists, start training from scratch!")
     model.summary()
-    model.compile(optimizer=tf.optimizers.SGD(lr=0.001, momentum=0.9, nesterov=True),
+    model.compile(optimizer=tf.optimizers.SGD(lr=0.000001,decay=0.001, momentum=0.9, nesterov=True),
                   loss=vgg_model._loss_tensor)
-    checkpoint = ModelCheckpoint("weights/triplet_weights_1_221_{epoch:02d}.hdf5",
+
+    checkpoint = ModelCheckpoint("weights/triplet_models_6_221_{epoch:02d}.h5",
                                  period=1,
                                  verbose=1,
                                  monitor='loss',
-                                 save_weights_only=True,
+                                 save_weights_only=False,
                                  save_best_only=True,
                                  mode='min')
+
     csv_logger = CSVLogger('csv_logger.log', separator=',', append=True)
     log_dir = fr".\logs\221\{str(datetime.now().strftime('%Y%m%d-%H%M%S'))}"
     tensorboard = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
@@ -286,8 +292,9 @@ def create_model():
     try:
         model.fit_generator(generator=vgg_model.image_batch_generator(x_train, y_train, vgg_model.batch_size),
                             steps_per_epoch=len(x_train) // vgg_model.batch_size,
-                            epochs=400,
+                            epochs=100,
                             verbose=1,
+                            shuffle=True,
                             callbacks=callbacks_list)
     except TypeError as te:
         print(te)
@@ -326,7 +333,7 @@ def predictor(image, embs, labels, df, model):
 
         for i, e in enumerate(embs):
             # Euler distance
-            dist = np.linalg.norm(emb - e)
+            dist = np.linalg.norm(e - emb)
             if dist < minimum:
                 minimum = dist
                 person = i
@@ -360,35 +367,43 @@ def main():
     #                      required_size=required_size, shuffle=True)
 
     # create_model()
-    # x_train = np.load('x_train_221_shuffle.npy')
-    # y_train = np.load('y_train_221_shuffle.npy')
+    x_train = np.load('x_train_221_shuffle.npy')
+    y_train = np.load('y_train_221_shuffle.npy')
 
     # model = vgg_model.deep_rank_model(input_shape=(221, 221, 3))
-    # model.load_weights(r"C:\FaceRecognition\weights\triplet_weights_1_221_73.hdf5")
+    # model.load_weights(r"C:\FaceRecognition\weights\triplet_weights_5_221_58.hdf5")
     # model.summary()
-
+    # model.save(r'C:\FaceRecognition\weights\triplet_mode_221.hdf5')
+    model = load_model("weights/triplet_models_3_221_35.h5", compile=False)
+    model.summary()
+    model.compile(optimizer=tf.optimizers.SGD(lr=0.0001, momentum=0.9, nesterov=True),
+                  loss=vgg_model._loss_tensor)
+    # model.compile(optimizer=tf.optimizers.SGD(lr=0.00001, momentum=0.9, nesterov=True),
+    #               loss=vgg_model._loss_tensor)
+    # model.compile(optimizer=tf.optimizers.SGD(lr=0.000001, decay=0.001, momentum=0.9, nesterov=True),
+    #               loss=vgg_model._loss_tensor)
     # embs = []
     # for x in tqdm(x_train):
     #     image = x / 255.
-    #     image = np.expand_dims(x, axis=0)
+    #     image = np.expand_dims(image, axis=0)
     #     emb = model.predict([image, image, image])
     #     embs.append(emb[0])
     #     del image
-    # embs96 = np.array(embs)
-    # print(embs96.shape)
-    # np.save('embs221', embs96)
-    # embs = np.load('embs221.npy')
-    # df_train = pd.read_csv('dataframe.zip')
-    # print(len(df_train))
-    #
-    # image = cv2.imread(r'D:\Data\irene.jpg')
-    # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    # predictor(image, embs, y_train, df_train, model)
+    # embs = np.array(embs)
+    # print(embs.shape)
+    # np.save('embs335', embs)
+    embs = np.load('embs335.npy')
+    df_train = pd.read_csv('dataframe.zip')
+    print(len(df_train))
+    image = cv2.imread(r"D:\Data\test\yeri.png")
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    predictor(image, embs, y_train, df_train, model)
 
     # v = visualize.Visualize()
     # v.generate_sample('Yeri')
     # v.generate_sample('Irene')
-    # v.generate_sample(5000)
+    # v.generate_sample('Wendy')
+    # v.generate_random_sample(1000)
 
 
 if __name__ == "__main__":

@@ -11,14 +11,14 @@ import vgg_model
 
 
 class Visualize:
-    x = "x_train_96_1_shuffle.npy"
-    y = "y_train_96_1_shuffle.npy"
+    x = "x_train_221_shuffle.npy"
+    y = "y_train_221_shuffle.npy"
     data = "data"
     dataframe = "dataframe.zip"
     file_name = "lfw"
-    dimension = "96"
+    dimension = "128"
     types = ['embs', 'tenorbytes', 'labels', 'sprites']
-    weight_path = "weights/models-DENSEFINAL96/triplet_weights_model-DENSE-FINAL-96-14.hdf5"
+    weight_path = "weights/triplet_weights_5_221_58.hdf5"
 
     def __init__(self):
         self.x_train = np.load(f"{self.data}/{self.x}")
@@ -97,6 +97,8 @@ class Visualize:
         try:
             # row x col
             label = self.dataframe[self.dataframe['name'] == name].iloc[0, 1]
+            print(f"LABEL:{label}")
+
         except IndexError as ie:
             print(f"{name} not found!")
             exc_info = sys.exc_info()
@@ -105,10 +107,13 @@ class Visualize:
             return
 
         ids = []
-        for i in tqdm(self.y_train):
-            if self.y_train[i] == label:
+        for i, l in tqdm(enumerate(self.y_train)):
+            if l == label:
+                print(f"Y-TRAIN-LABEL:{l}")
+                print(f"I:{i}")
                 ids.append(i)
         print(ids)
+
         x_train = self.x_train[ids]
         y_train = self.y_train[ids]
 
