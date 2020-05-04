@@ -55,10 +55,10 @@ for gpu in gpus:
     tf.config.experimental.set_memory_growth(gpu, True)
 # check version of keras_vggface
 # print version
-print("keras_vggface-version :", keras_vggface.__version__)
+# print("keras_vggface-version :", keras_vggface.__version__)
 # confirm mtcnn was installed correctly
 # print version
-print("MTCNN-version :", mtcnn.__version__)
+# print("MTCNN-version :", mtcnn.__version__)
 
 DATA_DIR = r"D:\Data\train"
 DATA_TEST_DIR = r"D:\Data\test"
@@ -197,6 +197,26 @@ def display(a, b, title1="Original", title2="Edited"):
     plt.show()
 
 
+# Display 5 images
+def display_5(original, images, df):
+    count = 0
+    plt.subplot(2, 3, 1), plt.imshow(original), plt.title(f"Original")
+    rows = 2
+    cols = 3
+    images = list(reversed(images))
+
+    for i in range(2, cols * rows + 1):
+        if count == 5:
+            break
+        print(f"PERSON No.{images[count][0]} | LABEL No.{images[count][3]}")
+        name = df[(df['label'] == images[count][3])].iloc[0, 2]
+        plt.subplot(rows, cols, i), plt.imshow(images[count][2]),
+        plt.title(f"Name:{name}\nEMB:{images[count][1]}")
+        count = count + 1
+    plt.tight_layout(pad=2.0)
+    plt.show()
+
+
 # def align_face(face, image_size):
 #     (h, w, c) = face.shape
 #     bb = dlib.rectangle(0, 0, w, h)
@@ -240,8 +260,8 @@ def preprocessing(directory_path, save_path, required_size=(221, 221)):
 
 
 def create_model():
-    x_train = np.load('x_train_221_shuffle.npy')
-    y_train = np.load('y_train_221_shuffle.npy')
+    x_train = np.load('x_test_221_shuffle.npy')
+    y_train = np.load('y_test_221_shuffle.npy')
 
     print(f"X-TRAIN-SHAPE:{x_train.shape},\tDTYPE: {x_train.dtype}")
     print(f"Y-TRAIN-SHAPE:{y_train.shape},\tDTYPE: {y_train.dtype}")
@@ -267,7 +287,7 @@ def create_model():
     else:
         print(f"Paths don't exists, start training from scratch!")
     model.summary()
-    model.compile(optimizer=tf.optimizers.SGD(lr=0.001, momentum=0.9, nesterov=True),
+    model.compile(optimizer=tf.optimizers.SGD(lr=0.000001, decay=0.001, momentum=0.9, nesterov=True),
                   loss=vgg_model._loss_tensor)
     checkpoint = ModelCheckpoint("weights/triplet_weights_1_221_{epoch:02d}.hdf5",
                                  period=1,
@@ -298,8 +318,9 @@ def create_model():
     # model.save_weights("weights/best/vgg_best_weights.hdf5")
 
 
-def predictor(image, embs, labels, df, model):
+def predictor(image, embs, features, labels, df, model):
     global hog_detector
+    images = []
 
     start = time.time()
     faces_hog = hog_detector(image, 1)
@@ -312,44 +333,35 @@ def predictor(image, embs, labels, df, model):
         w = face.right() - x
         h = face.bottom() - y
 
-        # draw green box over face which detect by hog + svm
-        cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
-
-        # Get vector embeding
         frame = image[y:y + h, x:x + w]
-        frame = cv2.resize(frame, (96, 96))
-        # frame = align_face(frame, 96)
-        # frame = (frame / 255.).astype(np.float32)
-        # frame = frame / 255.
-        display_one(frame)
+        frame = cv2.resize(frame, (221, 221))
+        frame = frame / 255.
         frame = np.expand_dims(frame, axis=0)
+
         emb = model.predict([frame, frame, frame])
-
-        minimum = 99999
-
+        minimum = 10
         person = -1
 
         for i, e in enumerate(embs):
-            # Euler distance
-            dist = np.linalg.norm(emb - e)
+            dist = np.linalg.norm(e - emb)
             if dist < minimum:
                 minimum = dist
                 person = i
-                print(i)
-                print(minimum)
-        EMB = minimum
-        print("\nPERSON: ", person)
-        print("\nPERSON-LABEL: ", labels[person])
+                images.append([i, minimum, features[i], labels[i]])
+                print(f"{i} - {minimum}")
+
+        emb = minimum
         name = df[(df['label'] == labels[person])].iloc[0, 2]
-        print("\nPERSON-NAME: ", name)
-        print("\nPERSON-EMB: ", EMB)
-        # convert the probabilities to class labels
-        # print('%s (%.2f%%)' % (name, EMB))
+        print(f"\nPERSON: {person}  LABEL: {labels[person]} NAME: {name}")
+        print(f"EMB: {emb}")
+
         cv2.putText(image, name, (x - 10, y - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-        cv2.putText(image, str(EMB), (x - 20, y - 20),
+        cv2.putText(image, str(emb), (x - 20, y - 20),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-        display_one(image)
+
+        display_5(image, images, df)
+        return images
 
 
 def main():
@@ -365,40 +377,44 @@ def main():
     #                      required_size=required_size, shuffle=True)
 
     # create_model()
-    # x_train = np.load('x_train_96_1_shuffle.npy')
-    # y_train = np.load('y_train_96_1_shuffle.npy')
-    #
-    # model = vgg_model.deep_rank_model(input_shape=x_train.shape[1:])
-    # model.load_weights(r"C:\FaceRecognition\weights\models-DENSEFINAL96\triplet_weights-192-8-96.hdf5")
-    # model.summary()
+    x_train = np.load('x_train_221_shuffle.npy')
+    y_train = np.load('y_train_221_shuffle.npy')
 
-    # embs96 = []
+    # model = vgg_model.deep_rank_model(input_shape=(221, 221, 3))
+    # model.load_weights(r"C:\FaceRecognition\weights\triplet_weights_5_221_58.hdf5")
+    # model.summary()
+    # model.save(r'C:\FaceRecognition\weights\triplet_mode_221.hdf5')
+
+    model = load_model("weights/triplet_models_5_221_40.h5", compile=False)
+    model.summary()
+    # model.compile(optimizer=tf.optimizers.SGD(lr=0.0001, momentum=0.9, nesterov=True),
+    #               loss=vgg_model._loss_tensor)
+    # model.compile(optimizer=tf.optimizers.SGD(lr=0.00001, momentum=0.9, nesterov=True),
+    #               loss=vgg_model._loss_tensor)
+    model.compile(optimizer=tf.optimizers.SGD(lr=0.000001, decay=0.001, momentum=0.9, nesterov=True),
+                  loss=vgg_model._loss_tensor)
+    # embs = []
     # for x in tqdm(x_train):
-    #     # image = x / 255.
-    #     image = np.expand_dims(x, axis=0)
-    #     emb128 = model.predict([image, image, image])
-    #     embs96.append(emb128[0])
+    #     image = x / 255.
+    #     image = np.expand_dims(image, axis=0)
+    #     emb = model.predict([image, image, image])
+    #     embs.append(emb[0])
     #     del image
-    # embs96 = np.array(embs96)
-    # print(embs96.shape)
-    # np.save('embs96', embs96)
-    # embs = np.load('embs96.npy')
-    # df_train = pd.read_csv('dataframe_1.zip')
-    # print(len(df_train))
-    #
-    # image = cv2.imread(r'D:\Data\aaron.jpg', cv2.IMREAD_UNCHANGED)
-    # cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    # imsave(r"D:\Data\temp", format="JPEG")
-    # img = Image.open(r"D:\Data\temp")
-    # img.load()
-    # img_array = np.array(img).astype(dtype=np.uint8)
-    #
-    # predictor(image, embs, y_train, df_train, model)
+    # embs = np.array(embs)
+    # print(embs.shape)
+    # np.save('embs335', embs)
+    embs = np.load('weights/embs540.npy')
+    df_train = pd.read_csv('weights/dataframe.zip')
+    print(len(df_train))
+    image = cv2.imread(r"D:/Data/res/pic/New folder/z1.jpg")
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    predictor(image, embs, x_train, y_train, df_train, model)
 
     # v = visualize.Visualize()
     # v.generate_sample('Yeri')
     # v.generate_sample('Irene')
-    # v.generate_sample(5000)
+    # v.generate_sample('Wendy')
+    # v.generate_random_sample(1000)
 
 
 if __name__ == "__main__":
