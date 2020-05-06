@@ -55,6 +55,31 @@ def image_batch_generator(images, labels, batch_size):
         yield input, np.zeros((batch_size,))
 
 
+def image_batch_generator_1(images, labels, batch_size):
+    labels = np.array(labels)
+    while True:
+        batch_paths = np.random.choice(a=len(images), size=batch_size // 3)
+        input_1 = []
+        for i in batch_paths:
+            # pos = np.where(labels == labels[i])[0]
+            neg = np.where(labels != labels[i])[0]
+            # j = np.random.choice(pos)
+            # while j == i:
+            #     j = np.random.choice(pos)
+
+            k = np.random.choice(neg)
+            while k == i:
+                k = np.random.choice(neg)
+
+            input_1.append(images[i])
+            input_1.append(images[i])
+            input_1.append(images[k])
+
+        input_1 = np.array(input_1)
+        input = [input_1, input_1, input_1]
+        yield input, np.zeros((batch_size,))
+
+
 def convnet_model_(input_shape):
     global x
     vgg_model = applications.VGG16(weights=None, include_top=False, input_shape=input_shape)

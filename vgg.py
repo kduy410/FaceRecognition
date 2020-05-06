@@ -241,8 +241,8 @@ def preprocessing(directory_path, save_path, required_size=(221, 221)):
 
 
 def create_model():
-    x_train = np.load('x_train_221_shuffle.npy')
-    y_train = np.load('y_train_221_shuffle.npy')
+    x_train = np.load('x_train_221_2019.npy')
+    y_train = np.load('y_train_221_2019.npy')
 
     print(f"X-TRAIN-SHAPE:{x_train.shape},\tDTYPE: {x_train.dtype}")
     print(f"Y-TRAIN-SHAPE:{y_train.shape},\tDTYPE: {y_train.dtype}")
@@ -272,10 +272,10 @@ def create_model():
     # else:
     #     print(f"Paths don't exists, start training from scratch!")
     model.summary()
-    model.compile(optimizer=tf.optimizers.SGD(lr=0.000001,decay=0.001, momentum=0.9, nesterov=True),
+    model.compile(optimizer=tf.optimizers.SGD(lr=0.01, decay=0.001, momentum=0.9, nesterov=True),
                   loss=vgg_model._loss_tensor)
 
-    checkpoint = ModelCheckpoint("weights/triplet_models_6_221_{epoch:02d}.h5",
+    checkpoint = ModelCheckpoint("weights/triplet_models_2019_1_221_{epoch:02d}.h5",
                                  period=1,
                                  verbose=1,
                                  monitor='loss',
@@ -284,13 +284,14 @@ def create_model():
                                  mode='min')
 
     csv_logger = CSVLogger('csv_logger.log', separator=',', append=True)
-    log_dir = fr".\logs\221\{str(datetime.now().strftime('%Y%m%d-%H%M%S'))}"
+    log_dir = fr".\logs\2019\{str(datetime.now().strftime('%Y%m%d-%H%M%S'))}"
     tensorboard = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
     callbacks_list = [checkpoint, csv_logger, tensorboard]
     # tensorboard --logdir=./logs --host=127.0.0.1
 
     try:
-        model.fit_generator(generator=vgg_model.image_batch_generator(x_train, y_train, vgg_model.batch_size),
+        model.fit_generator(generator=vgg_model.image_batch_generator_1(x_train, y_train,
+                                                                        vgg_model.batch_size),
                             steps_per_epoch=len(x_train) // vgg_model.batch_size,
                             epochs=100,
                             verbose=1,
@@ -323,7 +324,7 @@ def predictor(image, embs, labels, df, model):
         frame = image[y:y + h, x:x + w]
         frame = cv2.resize(frame, (221, 221))
         frame = frame / 255.
-        display_one(frame)
+        # display_one(frame)
         frame = np.expand_dims(frame, axis=0)
         emb = model.predict([frame, frame, frame])
 
@@ -333,7 +334,7 @@ def predictor(image, embs, labels, df, model):
 
         for i, e in enumerate(embs):
             # Euler distance
-            dist = np.linalg.norm(e - emb)
+            dist = np.linalg.norm(emb - e)
             if dist < minimum:
                 minimum = dist
                 person = i
@@ -347,11 +348,11 @@ def predictor(image, embs, labels, df, model):
         print("\nPERSON-EMB: ", EMB)
         # convert the probabilities to class labels
         # print('%s (%.2f%%)' % (name, EMB))
-        cv2.putText(image, name, (x - 10, y - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-        cv2.putText(image, str(EMB), (x - 20, y - 20),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-        display_one(image)
+        cv2.putText(image, str(name), (x, y + w + 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+        # cv2.putText(image, str(EMB), (x, y + w + 20),
+        #             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+    display_one(image)
 
 
 def main():
@@ -367,21 +368,23 @@ def main():
     #                      required_size=required_size, shuffle=True)
 
     # create_model()
-    x_train = np.load('x_train_221_shuffle.npy')
-    y_train = np.load('y_train_221_shuffle.npy')
+    x_train = np.load('x_train_221_2019.npy')
+    y_train = np.load('y_train_221_2019.npy')
 
     # model = vgg_model.deep_rank_model(input_shape=(221, 221, 3))
     # model.load_weights(r"C:\FaceRecognition\weights\triplet_weights_5_221_58.hdf5")
     # model.summary()
     # model.save(r'C:\FaceRecognition\weights\triplet_mode_221.hdf5')
-    model = load_model("weights/triplet_models_3_221_35.h5", compile=False)
+    model = load_model("weights/triplet_models_2019_1_221_99.h5", compile=False)
     model.summary()
-    model.compile(optimizer=tf.optimizers.SGD(lr=0.0001, momentum=0.9, nesterov=True),
-                  loss=vgg_model._loss_tensor)
+    # model.compile(optimizer=tf.optimizers.SGD(lr=0.0001, momentum=0.9, nesterov=True),
+    #               loss=vgg_model._loss_tensor)
     # model.compile(optimizer=tf.optimizers.SGD(lr=0.00001, momentum=0.9, nesterov=True),
     #               loss=vgg_model._loss_tensor)
     # model.compile(optimizer=tf.optimizers.SGD(lr=0.000001, decay=0.001, momentum=0.9, nesterov=True),
     #               loss=vgg_model._loss_tensor)
+    model.compile(optimizer=tf.optimizers.SGD(lr=0.01, decay=0.001, momentum=0.9, nesterov=True),
+                  loss=vgg_model._loss_tensor)
     # embs = []
     # for x in tqdm(x_train):
     #     image = x / 255.
@@ -391,11 +394,12 @@ def main():
     #     del image
     # embs = np.array(embs)
     # print(embs.shape)
-    # np.save('embs335', embs)
-    embs = np.load('embs335.npy')
-    df_train = pd.read_csv('dataframe.zip')
+    # np.save('embs99', embs)
+    embs = np.load('embs2019.npy')
+    df_train = pd.read_csv('dataframe_2019_221.zip')
     print(len(df_train))
-    image = cv2.imread(r"D:\Data\test\yeri.png")
+    # image = cv2.imread(r"C:\Data\Capture.jpg")
+    image = cv2.imread(r"C:\Data\2019\02000113.jpg")
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     predictor(image, embs, y_train, df_train, model)
 
