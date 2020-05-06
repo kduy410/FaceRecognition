@@ -20,7 +20,7 @@ from vgg import display_one
 
 
 def down_scale(image):
-    scale_percent = 60  # percent of original size
+    scale_percent = 80  # percent of original size
     width = int(image.shape[1] * scale_percent / 100)
     height = int(image.shape[0] * scale_percent / 100)
     return width, height
@@ -32,12 +32,13 @@ for gpu in gpus:
 
 
 class GUI:
-    IMAGE_EXTENSIONS = ('.png', '.jpg', '.jpeg')
+    IMAGE_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.pkl')
     VIDEO_EXTENSIONS = ('.mp4', '.avi', '.wmv', '.flv')
     VIDEO_WIDTH = 0
     VIDEO_HEIGHT = 0
     IMAGES = []
     MESSAGES = []
+    THRESH_HOLD = 0.03
 
     index = 0
     DATA_PART = ""
@@ -45,7 +46,7 @@ class GUI:
     image_size = 221, 221
     VIDEO_SOURCE = -1
 
-    FILE_TYPE_ERROR = "Unknown file type, please choose again"
+    FILE_TYPE_ERROR = "Unknown type, please choose again"
 
     _instance = None
     image = None
@@ -65,11 +66,11 @@ class GUI:
     DATA_FRAME_PATH = "weights/dataframe.zip"
     size = (221, 221)
     embs = None
-    EMBS_PATH = "weights/embs540.npy"
-    X_PATH = "weights/x_train_221_shuffle.npy"
-    Y_PATH = "weights/y_train_221_shuffle.npy"
+    EMBS_PATH = "weights/embs540-test.npy"
+    X_PATH = "weights/x_test_221_shuffle.npy"
+    Y_PATH = "weights/y_test_221_shuffle.npy"
     hog = None
-    save = False
+    is_saving = False
     SAVE_PATH = "D:/Data/temp/"
 
     @staticmethod
@@ -89,7 +90,7 @@ class GUI:
         self.window.config(menu=self.menu)
 
         file = tk.Menu(self.menu)
-        file.add_command(label="Save")
+        file.add_command(label="Save", command=self.save)
         file.add_command(label="Exit", command=self.quit)
         self.menu.add_cascade(label="File", menu=file)
 
@@ -107,9 +108,9 @@ class GUI:
                                        bg="white",
                                        fg="black",
                                        command=self.load_data)
-        self.btn_train_data = tk.Button(master=self.frm_right, text="Train data",
-                                        bg="white",
-                                        fg="black")
+        # self.btn_train_data = tk.Button(master=self.frm_right, text="Train data",
+        #                                 bg="white",
+        #                                 fg="black")
         self.btn_video = tk.Button(master=self.frm_right, text="Video",
                                    bg="white",
                                    fg="black",
@@ -160,7 +161,7 @@ class GUI:
         self.frm_right.columnconfigure([0], weight=1)
         self.frm_right.rowconfigure([0, 1, 2, 3, 4, 5], weight=0, pad=10)
 
-        self.btn_train_data.grid(row=0, column=0, padx=3, sticky='ew')
+        # self.btn_train_data.grid(row=0, column=0, padx=3, sticky='ew')
         self.btn_load_data.grid(row=1, column=0, padx=3, sticky='ew')
         self.btn_file.grid(row=2, column=0, padx=3, sticky='ew')
         self.btn_folder.grid(row=3, column=0, padx=3, sticky='ew')
@@ -200,7 +201,7 @@ class GUI:
         self.stop_worker()
         if not self.IMAGES:
             self.log.start()
-            print("EMPTY")
+            print("EMPTY!")
             self.print_to_gui()
             return
         else:
@@ -213,9 +214,9 @@ class GUI:
 
     def display_5(self, original, images):
         count = 0
-        plt.subplot(2, 3, 1), plt.imshow(original), plt.title(f"Original")
         rows = 2
         cols = 3
+        plt.subplot(rows, cols, 1), plt.imshow(original), plt.title(f"Original")
         try:
             images = list(reversed(images))
             for i in range(2, cols * rows + 1):
@@ -224,12 +225,19 @@ class GUI:
                 print(f"PERSON No.{images[count][0]} | LABEL No.{images[count][3]}")
                 name = self.data_frame[(self.data_frame['label'] == images[count][3])].iloc[0, 2]
                 plt.subplot(rows, cols, i), plt.imshow(images[count][2]),
-                plt.title(f"Name:{name}\nEMB:{images[count][1]}")
+                plt.title(f"No.{count}-Name:{name}\nEMB:{images[count][1]}")
                 count = count + 1
-            plt.tight_layout(pad=2.0)
-            plt.show()
+
         except TypeError:
             pass
+        except IndexError:
+            print(f"PERSON No.{images[0][0]} | LABEL No.{images[0][3]}")
+            name = self.data_frame[(self.data_frame['label'] == images[0][3])].iloc[0, 2]
+            plt.subplot(2, 3, 2), plt.imshow(images[0][2]),
+            plt.title(f"No.{count}-Name:{name}\nEMB:{images[count][1]}")
+        finally:
+            plt.tight_layout(pad=2.0)
+            plt.show()
 
     def detect(self, image):
         start = time.time()
@@ -260,8 +268,8 @@ class GUI:
 
     def print_to_gui(self):
         self.log.stop()
-        self.eula.insert(tk.INSERT, '\n' + str(self.log.messages))
-        # self.eula.insert(tk.END, '\n' + str(self.log.messages))
+        # self.eula.insert(tk.INSERT, '\n' + str(self.log.messages))
+        self.eula.insert(tk.END, '\n' + str(self.log.messages))
         self.eula.see('end')
         self.log.messages.clear()
 
@@ -278,8 +286,7 @@ class GUI:
                         if check is None:
                             image = cv2.imread(file_path)
                             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                            dim = down_scale(image)
-                            image = cv2.resize(image, dim, interpolation=cv2.INTER_AREA)
+
                             self.append([file_path, image])
                             self.set_label_image(self.index)
                             self.print_to_gui()
@@ -303,11 +310,11 @@ class GUI:
                 print("Loading model...")
                 self.model = load_model(self.MODEL_PATH, compile=False)
                 self.model.summary()
-                self.model.compile(optimizer=tf.optimizers.SGD(lr=0.000001,
-                                                               decay=0.001,
-                                                               momentum=0.9,
-                                                               nesterov=True),
-                                   loss=vgg_model._loss_tensor)
+                # self.model.compile(optimizer=tf.optimizers.SGD(lr=0.000001,
+                #                                                decay=0.001,
+                #                                                momentum=0.9,
+                #                                                nesterov=True),
+                #                    loss=vgg_model._loss_tensor)
 
                 # self.model.compile(optimizer=tf.optimizers.SGD(lr=0.00001,
                 #                                                momentum=0.9,
@@ -352,7 +359,10 @@ class GUI:
             print("DONE")
 
     def set_label_image(self, index):
-        self.image = ImageTk.PhotoImage(image=Image.fromarray(self.IMAGES[index][1]))
+        image = self.IMAGES[index][1]
+        dim = down_scale(image)
+        image = cv2.resize(image, dim, interpolation=cv2.INTER_AREA)
+        self.image = ImageTk.PhotoImage(image=Image.fromarray(image))
         self.label.configure(image=self.image)
 
     def append(self, data):
@@ -364,9 +374,7 @@ class GUI:
         for i, _ in enumerate(self.IMAGES):
             if i == self.index:
                 if i == 0:
-                    self.log.start()
                     print('This is the first image')
-                    self.print_to_gui()
                     return
                 else:
                     self.index = self.index - 1
@@ -378,9 +386,7 @@ class GUI:
         for i, _ in enumerate(self.IMAGES):
             if i == self.index:
                 if self.index + 1 == len(self.IMAGES):
-                    self.log.start()
                     print('This is the last image')
-                    self.print_to_gui()
                     return
                 else:
                     self.index = self.index + 1
@@ -402,8 +408,7 @@ class GUI:
                         if check is None:
                             image = cv2.imread(f"{full_path}")
                             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                            dim = down_scale(image)
-                            image = cv2.resize(image, dim, interpolation=cv2.INTER_AREA)
+
                             self.append([full_path, image])
                         else:
                             continue
@@ -553,7 +558,7 @@ class GUI:
             try:
                 frame = image[y:y + h, x:x + w]
                 frame = cv2.resize(frame, (221, 221))
-                if self.save is True:
+                if self.is_saving is True:
                     f = frame
                 frame = frame / 255.
                 frame = np.expand_dims(frame, axis=0)
@@ -561,25 +566,36 @@ class GUI:
                 minimum = 10
                 person = -1
                 for i, e in enumerate(self.embs):
-                    dist = np.linalg.norm(e - emb)
+                    dist = np.linalg.norm(emb - e)
                     if dist < minimum:
                         minimum = dist
                         person = i
-
                 emb = minimum
-                name = self.data_frame[(self.data_frame['label'] == self.y_train[person])].iloc[0, 2]
-                print(f"\nPERSON: {person}  LABEL: {self.y_train[person]} NAME: {name}")
-                print(f"EMB: {emb}")
+                if minimum > self.THRESH_HOLD:
+                    name = "Unknown"
+                    print(f"\nNAME: {name}")
+                    print(f"EMB: {emb}")
+                    cv2.rectangle(image, (x, y), (x + w, y + h), (255, 0, 0), 2)
 
-                cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 1)
-                cv2.putText(image, name, (x, y + h + 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-                cv2.putText(image, str(emb), (x, y + h + 20),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+                    cv2.putText(image, name, (x, y + h + 30),
+                                cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+
+                    cv2.putText(image, str(round(emb, 6)), (x, y + h + 50),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+                else:
+                    name = self.data_frame[(self.data_frame['label'] == self.y_train[person])].iloc[0, 2]
+                    print(f"\nPERSON: {person}  LABEL: {self.y_train[person]} NAME: {name}")
+                    print(f"EMB: {emb}")
+                    cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                    cv2.putText(image, name, (x, y + h + 30),
+                                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    cv2.putText(image, str(round(emb, 6)), (x, y + h + 50),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+
             except cv2.error:
                 pass
             finally:
-                if self.save is True:
+                if self.is_saving is True:
                     cv2.imwrite(f"{self.SAVE_PATH}/{name}-{emb}.jpg",
                                 cv2.cvtColor(f, cv2.COLOR_RGB2BGR))
 
@@ -603,24 +619,63 @@ class GUI:
             person = -1
 
             for i, e in enumerate(self.embs):
-                dist = np.linalg.norm(e - emb)
+                dist = np.linalg.norm(emb - e)
                 if dist < minimum:
                     minimum = dist
                     person = i
                     images.append([i, minimum, self.x_train[i], self.y_train[i]])
                     print(f"{i} - {minimum}")
-
             emb = minimum
-            name = self.data_frame[(self.data_frame['label'] == self.y_train[person])].iloc[0, 2]
-            print(f"\nPERSON: {person}  LABEL: {self.y_train[person]} NAME: {name}")
-            print(f"EMB: {emb}")
-            cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 1)
-            cv2.putText(image, name, (x, y + h + 10),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-            cv2.putText(image, str(emb), (x, y + h + 20),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+            if minimum > self.THRESH_HOLD:
+                name = "Unknown"
+                print(f"\nNAME: {name}")
+                print(f"EMB: {emb}")
+                cv2.rectangle(image, (x, y), (x + w, y + h), (255, 0, 0), 2)
+
+                cv2.putText(image, name, (x, y + h + 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+
+                cv2.putText(image, str(round(emb, 6)), (x, y + h + 50),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+            else:
+                name = self.data_frame[(self.data_frame['label'] == self.y_train[person])].iloc[0, 2]
+                print(f"\nPERSON: {person}  LABEL: {self.y_train[person]} NAME: {name}")
+                print(f"EMB: {emb}")
+                cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                cv2.putText(image, name, (x, y + h + 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                cv2.putText(image, str(round(emb, 6)), (x, y + h + 50),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
         return images
+
+    def save(self):
+        self.log.start()
+        if len(self.IMAGES) == 0:
+            print("EMPTY!")
+            self.print_to_gui()
+            return
+        else:
+            file_path = filedialog.askdirectory(parent=self.window, title="Please select a folder")
+            self.stop_worker()
+            try:
+                if len(file_path) > 0:
+                    print(f"You choose {file_path}")
+                    if os.path.isdir(file_path):
+                        for path, file in tqdm(self.IMAGES):
+                            try:
+                                name = path.split('/')[-1]
+                                cv2.imwrite(f"{file_path}/{name}",
+                                            cv2.cvtColor(file, cv2.COLOR_RGB2BGR))
+                            except cv2.error:
+                                pass
+                        print("SAVED!")
+                        self.print_to_gui()
+                    else:
+                        print(self.FILE_TYPE_ERROR)
+                        return
+            except AttributeError as ae:
+                print(str(ae))
 
 
 class Logger:

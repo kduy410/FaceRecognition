@@ -62,7 +62,7 @@ for gpu in gpus:
 
 DATA_DIR = r"D:\Data\train"
 DATA_TEST_DIR = r"D:\Data\test"
-DATAFRAME_PATH = r'dataframe.zip'
+DATAFRAME_PATH = r'dataframe_2019.zip'
 # alignment = AlignDlib('weights/shape_predictor_68_face_landmarks.dat')
 hog_detector = dlib.get_frontal_face_detector()
 
@@ -109,7 +109,7 @@ def create_data_frame(data_path, save=False):
         name = train_path.split('\\')[-1]
         print(f"\n{name}")
         images = glob(train_path + r"\*")
-        if len(images) > 1:
+        if len(images) == 1:
             for image in images:
                 df_train.loc[len(df_train)] = [image, index, name]
         else:
@@ -223,42 +223,6 @@ def display_5(original, images, df):
 #     return alignment.align(image_size, face, bb, landmarkIndices=AlignDlib.OUTER_EYES_AND_NOSE)
 
 
-# Preprocessing
-def preprocessing(directory_path, save_path, required_size=(221, 221)):
-    detector = dlib.get_frontal_face_detector()
-    train_paths = glob(fr"{directory_path}\*")
-
-    for path in tqdm(train_paths):
-        name = path.split("\\")[-1]
-        images = glob(f"{path}\\*")
-        for image_path in tqdm(images):
-            try:
-                temp_path = image_path.split("\\")[-1]
-                image = cv2.imread(image_path)
-                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                face_recs = detector(image, 1)
-                face = None
-                if len(face_recs) == 1:
-                    x = face_recs[0].left()
-                    y = face_recs[0].top()
-                    w = face_recs[0].right() - x
-                    h = face_recs[0].bottom() - y
-                    face = cv2.resize(image[y:y + h, x:x + w], required_size, interpolation=cv2.INTER_LINEAR)
-                else:
-                    continue
-                if not os.path.exists(fr"{save_path}/{name}"):
-                    os.mkdir(fr"{save_path}/{name}")
-                    imsave(fr"{save_path}/{name}/{temp_path}", face)
-                else:
-                    imsave(fr"{save_path}/{name}/{temp_path}", face)
-            except Exception as e:
-                print(e)
-                exc_info = sys.exc_info()
-                traceback.print_exception(*exc_info)
-                del exc_info
-                pass
-
-
 def create_model():
     x_train = np.load('x_test_221_shuffle.npy')
     y_train = np.load('y_test_221_shuffle.npy')
@@ -343,7 +307,7 @@ def predictor(image, embs, features, labels, df, model):
         person = -1
 
         for i, e in enumerate(embs):
-            dist = np.linalg.norm(e - emb)
+            dist = np.linalg.norm(emb - e)
             if dist < minimum:
                 minimum = dist
                 person = i
@@ -364,35 +328,94 @@ def predictor(image, embs, features, labels, df, model):
         return images
 
 
-def main():
-    required_size = (221, 221)
+# Preprocessing
+def preprocessing(directory_path, save_path, required_size=(225, 225)):
+    detector = dlib.get_frontal_face_detector()
+    detecto_mtcnn = mtcnn.MTCNN()
+    train_paths = glob(fr"{directory_path}\*")
 
-    # preprocessing(r"D:\Data\images\lfw", r"D:\Data\images\faces", required_size=required_size)
-    # create_data_frame('D:/Data/images/faces', save=True)
-    # create_training_data(r'D:/Data/images/faces', f'x_train_{required_size[0]}_shuffle',
-    #                      f'y_train_{required_size[0]}_shuffle',
-    #                      required_size=required_size, shuffle=True)
+    if not os.path.exists(f"{save_path}"):
+        os.mkdir(fr"{save_path}")
+    else:
+        pass
+    for path in tqdm(train_paths):
+        name = path.split("\\")[-1]
+        images = glob(f"{path}\\*")
+        for image_path in images:
+            try:
+                temp_path = image_path.split("\\")[-1]
+                image = cv2.imread(image_path)
+                # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                face_recs = detector(image, 1)
+                face = None
+                if len(face_recs) == 1:
+                    x = face_recs[0].left()
+                    y = face_recs[0].top()
+                    w = face_recs[0].right() - x
+                    h = face_recs[0].bottom() - y
+                    face = cv2.resize(image[y:y + h, x:x + w], required_size, interpolation=cv2.INTER_LINEAR)
+
+                else:
+                    print(fr"{name}")
+                    faces = detecto_mtcnn.detect_faces(image)
+                    for face in faces:
+                        x, y, width, height = face['box']
+                        face = cv2.resize(image[y:y + height, x:x + width], required_size,
+                                          interpolation=cv2.INTER_LINEAR)
+                if not os.path.exists(fr"{save_path}\{name}"):
+                    os.mkdir(fr"{save_path}\{name}")
+                    cv2.imwrite(fr"{save_path}\{name}\{temp_path}", face)
+                else:
+                    cv2.imwrite(fr"{save_path}\{name}\{temp_path}", face)
+            except Exception as e:
+
+                print(e)
+                exc_info = sys.exc_info()
+                traceback.print_exception(*exc_info)
+                del exc_info
+                pass
+
+
+def create_directory(p):
+    # detector = dlib.get_frontal_face_detector()
+    paths = glob(fr"{p}\*")
+    for path in tqdm(paths):
+        image = path.split("\\")[-1]
+        name = image.split(".")[0]
+        os.makedirs(fr"{p}\{name}")
+        os.rename(fr"{path}", fr"{p}\{name}\{image}")
+
+
+def main():
+    required_size = (225, 225)
+    # create_directory(fr"D:\Data\2019")
+    # preprocessing(r"D:\Data\2019", r"D:\Data\2019-faces", required_size=required_size)
+    # create_data_frame(r'D:\Data\2019-faces', save=True)
+
+    create_training_data(r'D:/Data/2019-faces', f'x_train_{required_size[0]}_shuffle',
+                         f'y_train_{required_size[0]}_shuffle',
+                         required_size=required_size, shuffle=True)
     # create_training_data(r'D:/Data/images/faces', f'x_test_{required_size[0]}_shuffle',
     #                      f'y_test_{required_size[0]}_shuffle',
     #                      required_size=required_size, shuffle=True)
 
     # create_model()
-    x_train = np.load('x_train_221_shuffle.npy')
-    y_train = np.load('y_train_221_shuffle.npy')
+    # x_train = np.load('weights/x_test_221_shuffle.npy')
+    # y_train = np.load('weights/y_test_221_shuffle.npy')
 
     # model = vgg_model.deep_rank_model(input_shape=(221, 221, 3))
     # model.load_weights(r"C:\FaceRecognition\weights\triplet_weights_5_221_58.hdf5")
     # model.summary()
     # model.save(r'C:\FaceRecognition\weights\triplet_mode_221.hdf5')
 
-    model = load_model("weights/triplet_models_5_221_40.h5", compile=False)
-    model.summary()
+    # model = load_model("weights/triplet_models_3_221_35.h5", compile=False)
+    # model.summary()
     # model.compile(optimizer=tf.optimizers.SGD(lr=0.0001, momentum=0.9, nesterov=True),
     #               loss=vgg_model._loss_tensor)
     # model.compile(optimizer=tf.optimizers.SGD(lr=0.00001, momentum=0.9, nesterov=True),
     #               loss=vgg_model._loss_tensor)
-    model.compile(optimizer=tf.optimizers.SGD(lr=0.000001, decay=0.001, momentum=0.9, nesterov=True),
-                  loss=vgg_model._loss_tensor)
+    # model.compile(optimizer=tf.optimizers.SGD(lr=0.000001, decay=0.001, momentum=0.9, nesterov=True),
+    #               loss=vgg_model._loss_tensor)
     # embs = []
     # for x in tqdm(x_train):
     #     image = x / 255.
@@ -402,13 +425,13 @@ def main():
     #     del image
     # embs = np.array(embs)
     # print(embs.shape)
-    # np.save('embs335', embs)
-    embs = np.load('weights/embs540.npy')
-    df_train = pd.read_csv('weights/dataframe.zip')
-    print(len(df_train))
-    image = cv2.imread(r"D:/Data/res/pic/New folder/z1.jpg")
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    predictor(image, embs, x_train, y_train, df_train, model)
+    # np.save('weights/embs335-test', embs)
+    # embs = np.load('weights/embs335-test.npy')
+    # df_train = pd.read_csv('weights/dataframe.zip')
+    # print(len(df_train))
+    # image = cv2.imread(r"D:/Data/res/pic/New folder/yeri.png")
+    # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    # predictor(image, embs, x_train, y_train, df_train, model)
 
     # v = visualize.Visualize()
     # v.generate_sample('Yeri')
