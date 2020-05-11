@@ -43,7 +43,7 @@ class GUI:
     index = 0
     DATA_PART = ""
     WEIGHTS = ""
-    image_size = 221, 221
+    image_size = (221, 221)
     VIDEO_SOURCE = -1
 
     FILE_TYPE_ERROR = "Unknown type, please choose again"
@@ -162,11 +162,11 @@ class GUI:
         self.frm_right.rowconfigure([0, 1, 2, 3, 4, 5], weight=0, pad=10)
 
         # self.btn_train_data.grid(row=0, column=0, padx=3, sticky='ew')
-        self.btn_load_data.grid(row=1, column=0, padx=3, sticky='ew')
-        self.btn_file.grid(row=2, column=0, padx=3, sticky='ew')
-        self.btn_folder.grid(row=3, column=0, padx=3, sticky='ew')
-        self.btn_video.grid(row=4, column=0, padx=3, sticky='ew')
-        self.btn_camera.grid(row=5, column=0, padx=3, sticky='ew')
+        self.btn_load_data.grid(row=0, column=0, padx=3, sticky='ew')
+        self.btn_file.grid(row=1, column=0, padx=3, sticky='ew')
+        self.btn_folder.grid(row=2, column=0, padx=3, sticky='ew')
+        self.btn_video.grid(row=3, column=0, padx=3, sticky='ew')
+        self.btn_camera.grid(row=4, column=0, padx=3, sticky='ew')
 
         self.frm_bottom.columnconfigure([0, 1, 2], weight=1, pad=10)
         self.frm_bottom.rowconfigure([0], weight=1, pad=20)
@@ -490,7 +490,7 @@ class GUI:
             self.frame = self.thread.queue.get(False)
             faces = self.detect(self.frame)
             if len(faces) is not 0:
-                self.frame = next(self.predict(self.frame, faces))
+                self.frame = self.predict(self.frame, faces)
             self.last_frame = self.frame
         except queue.Empty:
             print("\n\tMAIN QUEUE EMPTY")
@@ -557,7 +557,7 @@ class GUI:
 
             try:
                 frame = image[y:y + h, x:x + w]
-                frame = cv2.resize(frame, (221, 221))
+                frame = cv2.resize(frame, self.image_size, interpolation=cv2.INTER_LINEAR)
                 if self.is_saving is True:
                     f = frame
                 frame = frame / 255.
@@ -599,7 +599,7 @@ class GUI:
                     cv2.imwrite(f"{self.SAVE_PATH}/{name}-{emb}.jpg",
                                 cv2.cvtColor(f, cv2.COLOR_RGB2BGR))
 
-                yield image
+        return image
 
     def predict_image(self, image, faces):
         images = []
@@ -610,7 +610,7 @@ class GUI:
             h = face.bottom() - y
 
             frame = image[y:y + h, x:x + w]
-            frame = cv2.resize(frame, (221, 221))
+            frame = cv2.resize(frame, self.image_size, interpolation=cv2.INTER_LINEAR)
             frame = frame / 255.
             frame = np.expand_dims(frame, axis=0)
 

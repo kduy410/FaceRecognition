@@ -53,16 +53,10 @@ import vgg_model
 gpus = tf.config.experimental.list_physical_devices('GPU')
 for gpu in gpus:
     tf.config.experimental.set_memory_growth(gpu, True)
-# check version of keras_vggface
-# print version
-# print("keras_vggface-version :", keras_vggface.__version__)
-# confirm mtcnn was installed correctly
-# print version
-# print("MTCNN-version :", mtcnn.__version__)
 
 DATA_DIR = r"D:\Data\train"
 DATA_TEST_DIR = r"D:\Data\test"
-DATAFRAME_PATH = r'dataframe_2019.zip'
+DATAFRAME_PATH = r'dataframe_original.zip'
 # alignment = AlignDlib('weights/shape_predictor_68_face_landmarks.dat')
 hog_detector = dlib.get_frontal_face_detector()
 
@@ -109,7 +103,7 @@ def create_data_frame(data_path, save=False):
         name = train_path.split('\\')[-1]
         print(f"\n{name}")
         images = glob(train_path + r"\*")
-        if len(images) == 1:
+        if len(images) > 1:
             for image in images:
                 df_train.loc[len(df_train)] = [image, index, name]
         else:
@@ -142,7 +136,6 @@ def create_training_data(directory_path, data_name, label_name, required_size=(2
         try:
             image = cv2.imread(row['image'])
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
             if type(image) is np.ndarray:
                 if image.shape[:2] != required_size:
                     print(row['image'])
@@ -386,15 +379,68 @@ def create_directory(p):
         os.rename(fr"{path}", fr"{p}\{name}\{image}")
 
 
-def main():
-    required_size = (225, 225)
-    # create_directory(fr"D:\Data\2019")
-    # preprocessing(r"D:\Data\2019", r"D:\Data\2019-faces", required_size=required_size)
-    # create_data_frame(r'D:\Data\2019-faces', save=True)
+def evaluate(df_train, model, embs, labels):
+    global hog_detector
+    y_predict = []
 
-    create_training_data(r'D:/Data/2019-faces', f'x_train_{required_size[0]}_shuffle',
-                         f'y_train_{required_size[0]}_shuffle',
-                         required_size=required_size, shuffle=True)
+    for index, row in tqdm(df_train.iterrows()):
+        try:
+            image = cv2.imread(row['image'])
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            faces_hog = hog_detector(image, 1)
+
+            for face in faces_hog:
+                x = face.left()
+                y = face.top()
+                w = face.right() - x
+                h = face.bottom() - y
+
+                frame = image[y:y + h, x:x + w]
+                frame = cv2.resize(frame, (221, 221))
+                frame = frame / 255.
+                frame = np.expand_dims(frame, axis=0)
+
+                emb = model.predict([frame, frame, frame])
+                minimum = 10
+                person = None
+
+                for i, e in enumerate(embs):
+                    dist = np.linalg.norm(emb - e)
+                    if dist < minimum:
+                        minimum = dist
+                        person = i
+
+                label = labels[person]
+                print(f"\nPERSON:{person}")
+                print(f"\nLABEL_PRED:{label}")
+                print(f"\nLABEL_REAL:{row['label']}")
+
+                if int(label) == int(row['label']):
+                    print(f"\nPREDICT:True")
+                    y_predict.append(True)
+                else:
+                    print(f"\nPREDICT:False")
+                    y_predict.append(False)
+
+        except cv2.error:
+            pass
+    np.save('y_pred', y_predict)
+
+
+def calculate(y_pred):
+    for i in y_pred:
+        print(i)
+
+
+def main():
+    required_size = (221, 221)
+    # create_directory(fr"D:\Data\2019")
+    # preprocessing(r"D:\Data\2019", r"D:\Data\2019-faces-221", required_size=required_size)
+    # create_data_frame(r'D:\Data\2019-faces-221', save=True)
+    #
+    # create_training_data(r'D:/Data/2019-faces', f'x_train_{required_size[0]}_2019',
+    #                      f'y_train_{required_size[0]}_2019',
+    #                      required_size=required_size, shuffle=True)
     # create_training_data(r'D:/Data/images/faces', f'x_test_{required_size[0]}_shuffle',
     #                      f'y_test_{required_size[0]}_shuffle',
     #                      required_size=required_size, shuffle=True)
@@ -438,6 +484,20 @@ def main():
     # v.generate_sample('Irene')
     # v.generate_sample('Wendy')
     # v.generate_random_sample(1000)
+
+    # create_data_frame(r'D:\Data\images\lfw', save=True)
+    df_train = pd.read_csv('dataframe_original.zip')
+    model = load_model("weights/triplet_models_4_221_60.h5", compile=False)
+    model.compile(optimizer=tf.optimizers.SGD(lr=0.000001,
+                                              decay=0.001,
+                                              momentum=0.9,
+                                              nesterov=True),
+                  loss=vgg_model._loss_tensor)
+    embs = np.load('weights/embs460-test.npy')
+    y_test = np.load('weights/y_test_221_shuffle.npy')
+    evaluate(df_train, model, embs, y_test)
+    y_pred = np.load('y_pred.npy')
+    # calculate(y_pred)
 
 
 if __name__ == "__main__":
