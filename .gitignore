@@ -28,3 +28,6 @@ sequential
 /model/
 /data/*
 /data/
+/VideoCapture.py
+/ThreadTask.py
+/Sleep.py

@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras import applications, Input, Model
-from tensorflow.keras import backend as K
+from keras import backend as K
 from tensorflow.keras.layers import GlobalAveragePooling2D, Dense, Dropout, Lambda, Conv2D, MaxPool2D, Flatten, \
     concatenate
 import functools
