@@ -2,6 +2,8 @@ import pickle
 import random
 import sys
 import traceback
+
+import cv2
 import numpy as np
 from imageio import imwrite
 import pandas as pd
@@ -11,14 +13,14 @@ import vgg_model
 
 
 class Visualize:
-    x = "x_train_221_shuffle.npy"
-    y = "y_train_221_shuffle.npy"
+    x = "x_train_220_BGR.npy"
+    y = "y_train_220_BGR.npy"
     data = "data"
-    dataframe = "dataframe.zip"
-    file_name = "lfw"
+    dataframe = "2019-faces.zip"
+    file_name = "2019"
     dimension = "128"
     types = ['embs', 'tenorbytes', 'labels', 'sprites']
-    weight_path = "weights/triplet_weights_5_221_58.hdf5"
+    weight_path = "weights/triplet_weights_BGR.h5"
 
     def __init__(self):
         self.x_train = np.load(f"{self.data}/{self.x}")
@@ -33,29 +35,34 @@ class Visualize:
         self.model = model
 
     def create_embeddings(self, data, name=None):
-        embs96 = []
+        embs = []
         for x in tqdm(data):
             image = x / 255.
             image = np.expand_dims(image, axis=0)
-            emb96 = self.model.predict([image, image, image])
-            embs96.append(emb96[0])
+            emb = self.model.predict([image, image, image])
+            embs.append(emb[0])
             del image
-        print(f"EMBS-SHAPE:{np.shape(embs96)}")
-        embs96 = np.array(embs96)
-        np.save(f"{self.data}/{self.file_name}-{self.dimension}-{self.types[0]}{str(name)}", embs96)
-        embs96.tofile(f"{self.data}/{self.file_name}-{self.dimension}-{self.types[1]}{str(name)}.bytes")
+        print(f"EMBS-SHAPE:{np.shape(embs)}")
+        embs = np.array(embs)
+        np.save(f"{self.data}/{self.file_name}-{self.dimension}-{self.types[0]}{str(name)}", embs)
+        embs.tofile(f"{self.data}/{self.file_name}-{self.dimension}-{self.types[1]}{str(name)}.bytes")
 
     def create_tensor_labels(self, y_train, name=None):
         with open(f'{self.data}/{self.file_name}-{self.dimension}-{self.types[2]}{str(name)}.tsv', 'w') as f:
             for label in tqdm(y_train):
                 f.write(str(label) + '\n')
 
-    def images_to_sprite(self, data):
+    def images_to_sprite(self, x_train):
         """
         Creates the sprite image
         :param data: [batch_size, height, weight, n_channel]
         :return data: Sprited image::[height, weight, n_channel]
         """
+        data = []
+        for i in tqdm(x_train):
+            i = cv2.cvtColor(i, cv2.COLOR_BGR2RGB)
+            data.append(i)
+        data = np.array(data)
         if len(data.shape) == 3:
             data = np.tile(data[..., np.newaxis], (1, 1, 1, 3))
 
@@ -82,7 +89,7 @@ class Visualize:
 
     def to_sprites(self, data, name=None):
         simg = self.images_to_sprite(data)
-        imwrite(f'{self.data}/{self.file_name}-{self.dimension}-{self.types[3]}{str(name)}.png', np.squeeze(simg))
+        imwrite(f'{self.data}/{self.file_name}-{self.dimension}-{self.types[3]}-{str(name)}.png', np.squeeze(simg))
         print("SPRITES-SAVED!!!")
 
     def generate_random_sample(self, total=5000):
@@ -91,7 +98,7 @@ class Visualize:
         y_train = self.y_train[ids]
         self.create_embeddings(x_train, name=f"-{total}")
         self.create_tensor_labels(y_train=y_train, name=f"-{total}")
-        self.to_sprites(x_train)
+        self.to_sprites(x_train, total)
 
     def generate_sample(self, name):
         try:

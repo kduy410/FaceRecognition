@@ -147,6 +147,7 @@ def create_training_data(directory_path, DATAFRAME_PATH, data_name, label_name, 
 
 # Display one image
 def display_one(a, title1="Original"):
+    a = cv2.cvtColor(a,cv2.COLOR_BGR2RGB)
     plt.imshow(a), plt.title(title1)
     plt.xticks([]), plt.yticks([])
     plt.show()
@@ -301,13 +302,13 @@ def predictor(image, embs, labels, df, model):
         h = face.bottom() - y
 
         frame = image[y:y + h, x:x + w]
-        frame = cv2.resize(frame, (221, 221))
+        frame = cv2.resize(frame, (220, 220))
         frame = frame / 255.
         # display_one(frame)
         frame = np.expand_dims(frame, axis=0)
         emb = model.predict([frame, frame, frame])
 
-        minimum = 99999
+        minimum = 10
 
         person = -1
 
@@ -317,14 +318,12 @@ def predictor(image, embs, labels, df, model):
             if dist < minimum:
                 minimum = dist
                 person = i
-                print(i)
-                print(minimum)
-        EMB = minimum
+        emb = minimum
         print("\nPERSON: ", person)
         print("\nPERSON-LABEL: ", labels[person])
         name = df[(df['label'] == labels[person])].iloc[0, 2]
         print("\nPERSON-NAME: ", name)
-        print("\nPERSON-EMB: ", EMB)
+        print("\nPERSON-EMB: ", emb)
         # convert the probabilities to class labels
         # print('%s (%.2f%%)' % (name, EMB))
         cv2.putText(image, str(name), (x, y + w + 10),
@@ -335,9 +334,9 @@ def predictor(image, embs, labels, df, model):
 
 
 def evaluate(df_train, model, embs, labels):
-    global hog_detector, detector_mtcnn
+    global hog_detector
     y_predict = []
-    x_train = np.load('x_train_221_BGR.npy')
+    # x_train = np.load('x_train_221_BGR.npy')
 
     for index, row in tqdm(df_train.iterrows()):
 
@@ -353,7 +352,7 @@ def evaluate(df_train, model, embs, labels):
                     h = face.bottom() - y
 
                     frame = image[y:y + h, x:x + w]
-                    frame = cv2.resize(frame, (221, 221), interpolation=cv2.INTER_LINEAR)
+                    frame = cv2.resize(frame, (220, 220), interpolation=cv2.INTER_LINEAR)
                     frame = frame / 255.
                     frame = np.expand_dims(frame, axis=0)
 
@@ -383,42 +382,8 @@ def evaluate(df_train, model, embs, labels):
                     else:
                         print(f"\nPREDICT:False")
                         y_predict.append(False)
-            elif len(faces_hog) == 0:
-                faces = detector_mtcnn.detect_faces(image)
-                if len(faces) == 0:
-                    continue
-                else:
-                    for face in faces:
-                        x, y, width, height = face['box']
-
-                        frame = image[y:y + height, x:x + width]
-                        frame = cv2.resize(frame, (221, 221), interpolation=cv2.INTER_LINEAR)
-                        frame = frame / 255.
-                        frame = np.expand_dims(frame, axis=0)
-
-                        emb = model.predict([frame, frame, frame])
-                        minimum = 10
-                        person = None
-
-                        for i, e in enumerate(embs):
-                            dist = np.linalg.norm(emb - e)
-                            if dist < minimum:
-                                minimum = dist
-                                person = i
-
-                        label = labels[person]
-                        name = df_train[(df_train['label'] == label)].iloc[0, 2]
-                        print(f"\nPERSON:{person}")
-                        print(f"\nNAME:{str(name)}")
-                        print(f"\nLABEL_PRED:{label}")
-                        print(f"\nLABEL_REAL:{row['label']}")
-
-                        if int(label) == int(row['label']):
-                            print(f"\nPREDICT:True")
-                            y_predict.append(True)
-                        else:
-                            print(f"\nPREDICT:False")
-                            y_predict.append(False)
+            else:
+                continue
 
         except cv2.error:
             pass
@@ -551,17 +516,20 @@ def main():
     #                      f'y_train_{220}_BGR',
     #                      required_size=(220, 220), shuffle=False)
 
-    create_model()
+    # create_model()
 
-    # x_train = np.load('x_train_220_BGR.npy')
-    # y_train = np.load('y_train_220_BGR.npy')
+    x_train = np.load('x_train_220_BGR.npy')
+    y_train = np.load('y_train_220_BGR.npy')
 
-    # model = vgg_model.deep_rank_model(input_shape=(221, 221, 3))
-    # model.load_weights(r"C:\FaceRecognition\weights\triplet_weights_5_221_58.hdf5")
-    # model.summary()
+    model = vgg_model.deep_rank_model(input_shape=(220, 220, 3))
+    model.load_weights(r"weights/triplet_weights_BGR.h5")
+    model.summary()
+
     # model.save(r'C:\FaceRecognition\weights\triplet_mode_221.hdf5')
-    # model = load_model("weights/triplet_models_BGR.h5", compile=False)
+
+    # model = load_model("weights/triplet_weights_BGR.h5", compile=False)
     # model.summary()
+
     # model.compile(optimizer=tf.optimizers.SGD(lr=0.01, decay=0.01, momentum=0.9, nesterov=True),
     #               loss=vgg_model._loss_tensor)
     # model.compile(optimizer=tf.optimizers.SGD(lr=0.0001, momentum=0.9, nesterov=True),
@@ -581,30 +549,27 @@ def main():
     #     del image
     # embs = np.array(embs)
     # print(embs.shape)
-    # np.save('embsBGR', embs)
+    # np.save('embs220BGR', embs)
 
-    # embs = np.load('embsBGR.npy')
-    # df_train = pd.read_csv('dataframe_faces_250.zip')
+    # embs = np.load('embs220BGR.npy')
+    # df_train = pd.read_csv('2019-original.zip')
     # print(len(df_train))
-    # image = cv2.imread(r"C:\Data\irene.png")
+    # image = cv2.imread(r"D:\Data\Capture.JPG")
     # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     # predictor(image, embs, y_train, df_train, model)
 
-    # v = visualize.Visualize()
-    # v.generate_sample('Yeri')
-    # v.generate_sample('Irene')
-    # v.generate_sample('Wendy')
-    # v.generate_random_sample(1000)
+    v = visualize.Visualize()
+    v.generate_random_sample(1250)
 
     # create_directory(fr"D:\Data\2019")
     # create_data_frame(r'D:\Data\images\faces', save=True)
 
-    # df_train = pd.read_csv('dataframe_original.zip')
+    # df_train = pd.read_csv('2019-original.zip')
     # model = load_model("weights/triplet_models_BGR.h5", compile=False)
     # model.compile(optimizer=tf.optimizers.SGD(lr=0.01, decay=0.01, momentum=0.9, nesterov=True),
     #               loss=vgg_model._loss_tensor)
-    # embs = np.load('embsBGR.npy')
-    # y_test = np.load('y_train_221_BGR.npy')
+    # embs = np.load('embs220BGR.npy')
+    # y_test = np.load('y_train_220_BGR.npy')
     # evaluate(df_train, model, embs, y_test)
     # y_pred = np.load('y_pred.npy')
     # calculate(y_pred)
