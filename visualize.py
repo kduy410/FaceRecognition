@@ -13,8 +13,8 @@ import vgg_model
 
 
 class Visualize:
-    x = "x_train_220_BGR.npy"
-    y = "y_train_220_BGR.npy"
+    x = "x_train_221_shuffle.npy"
+    y = "y_train_221_shuffle.npy"
     data = "data"
     dataframe = "2019-faces.zip"
     file_name = "2019"

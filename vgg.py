@@ -518,12 +518,12 @@ def main():
 
     # create_model()
 
-    x_train = np.load('x_train_220_BGR.npy')
-    y_train = np.load('y_train_220_BGR.npy')
-
-    model = vgg_model.deep_rank_model(input_shape=(220, 220, 3))
-    model.load_weights(r"weights/triplet_weights_BGR.h5")
-    model.summary()
+    # x_train = np.load('x_train_220_BGR.npy')
+    # y_train = np.load('y_train_220_BGR.npy')
+    #
+    # model = vgg_model.deep_rank_model(input_shape=(220, 220, 3))
+    # model.load_weights(r"weights/triplet_weights_BGR.h5")
+    # model.summary()
 
     # model.save(r'C:\FaceRecognition\weights\triplet_mode_221.hdf5')
 
@@ -558,8 +558,8 @@ def main():
     # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     # predictor(image, embs, y_train, df_train, model)
 
-    v = visualize.Visualize()
-    v.generate_random_sample(1250)
+    # v = visualize.Visualize()
+    # v.generate_random_sample(1250)
 
     # create_directory(fr"D:\Data\2019")
     # create_data_frame(r'D:\Data\images\faces', save=True)
